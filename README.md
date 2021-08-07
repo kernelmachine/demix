@@ -1,2 +1,2 @@
-# demix_layers
+# DEMix Layers
 DEMix Layers for Modular Language Modeling
