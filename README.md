@@ -17,7 +17,7 @@ Additionally, please make sure you have the dependencies above installed (check 
 ## Dataset
 
 
-The multidomain dataset scripts are housed in another repository, located [here](https://github.com/kernelmachine/demix_data). Clone that repository and follow instructions to setup data to train on.
+The multidomain dataset scripts are housed in another repository, located [here](https://github.com/kernelmachine/demix-data). Clone that repository and follow instructions to setup data to train on.
 
 ## Basic Training
 
