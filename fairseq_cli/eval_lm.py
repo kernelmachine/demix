@@ -106,7 +106,7 @@ def eval_lm(
         bpe_len = 0
 
     word_stats = dict()
-
+    
     for ix, sample in enumerate(batch_iterator):
         if max_samples and ix > max_samples:
             break
@@ -358,7 +358,7 @@ def main(cfg: DictConfig, **unused_kwargs):
         # if cfg.common_eval.use_experts is not None:
         #     for layer in model.decoder.layers:
         #         layer.use_experts = cfg.common_eval.use_experts
-
+            
         itr = task.eval_lm_dataloader(
             dataset=dataset,
             max_tokens=cfg.dataset.max_tokens or 36000,

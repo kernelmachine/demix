@@ -31,7 +31,7 @@ from fairseq.trainer import Trainer
 from fairseq.data import ResamplingDataset
 from fairseq.models.moe_model import MoETransformer
 from fairseq.modules.moe.top1gate import Top1Gate
-
+ 
 
 
 logging.basicConfig(
@@ -132,11 +132,11 @@ def interleave(*args):
 def evaluate(models, sample, device, gen_timer, scorer, bpe_toks, output_word_probs, output_word_stats, remove_bos_token=False, prior=None):
     score_sum = 0
     count = 0
-
+    
     sample = utils.move_to_cuda(sample, device=device % 8)
 
     gen_timer.start()
-
+    
     if isinstance(prior, list):
         prior = torch.tensor(prior).float()
     hypos = scorer.generate(models, sample, ensemble=True, ensemble_weighted_average=True, prior=prior,all_reduce=torch.distributed.is_initialized())
@@ -174,7 +174,7 @@ def evaluate(models, sample, device, gen_timer, scorer, bpe_toks, output_word_pr
         if hypo['expert_probs'] is not None:
             expert_ps = hypo['expert_probs'].mean(1).unsqueeze(0).cpu().numpy()
             expert_probs.append(expert_ps)
-
+        
         if output_word_probs or output_word_stats:
             w = ""
             word_prob = []
@@ -304,7 +304,7 @@ def dynamic_eval_lm(
     steps = 0
     target_score_sum = 0
     target_count = 0
-
+    
     target_ppls = []
     expert_probs_all = []
     priors_all = []
@@ -322,7 +322,7 @@ def dynamic_eval_lm(
         prior = precomputed_prior
     else:
         prior = None
-
+    
     # # UNCOMMENT FOR UPDATING PRIOR
     #precomputed_prior = False
     #prior = None
@@ -349,7 +349,7 @@ def dynamic_eval_lm(
        # logger.info(f"target_ppl: {target_ppl}, domain_probs: {prior}")
     return target_ppls, expert_probs_all, priors_all
 
-
+    
 
 
 class WordStat(object):
@@ -412,7 +412,7 @@ def main(cfg: DictConfig, **unused_kwargs):
     #    cycled = cycle(cfg.common_eval.path.split(':'))
     #    sliced = islice(cycled, None, torch.distributed.get_world_size())
     #    result = list(sliced)
-    #    model_ = [result[torch.distributed.get_rank()]] if torch.distributed.is_initialized() else cfg.common_eval.path.split(':')
+    #    model_ = [result[torch.distributed.get_rank()]] if torch.distributed.is_initialized() else cfg.common_eval.path.split(':') 
     #else:
     model_ = [cfg.common_eval.path.split(':')[torch.distributed.get_rank()]] if torch.distributed.is_initialized() else cfg.common_eval.path.split(':')
     models, model_args, task = checkpoint_utils.load_model_ensemble_and_task(
@@ -427,7 +427,7 @@ def main(cfg: DictConfig, **unused_kwargs):
         partial_load=cfg.common_eval.partial_load
     )
 
-
+    
     use_fp16 = cfg.common.fp16
     use_cuda = torch.cuda.is_available() and not cfg.common.cpu
     if use_cuda:
@@ -453,13 +453,13 @@ def main(cfg: DictConfig, **unused_kwargs):
         task.load_dataset(subset)
 
     # train_dataset = task.dataset(cfg.dataset.target_domain)
-
+    
     eval_dataset = task.dataset(cfg.dataset.target_eval)
 
     # undomain_dataset = task.dataset(cfg.dataset.undomain_eval)
 
     # undomain_replay_dataset = task.dataset(cfg.dataset.undomain_replay)
-
+    
 
     # logger.info(
     #     "{} {} {:,} examples".format(
@@ -520,7 +520,7 @@ def main(cfg: DictConfig, **unused_kwargs):
         context_window=cfg.eval_lm.context_window,
     )
 
-
+    
 
     dev_itr = progress_bar.progress_bar(
         dev_itr,
@@ -544,7 +544,7 @@ def main(cfg: DictConfig, **unused_kwargs):
     #     context_window=cfg.eval_lm.context_window,
     # )
 
-
+    
 
     # train_itr = progress_bar.progress_bar(
     #     train_itr,
@@ -556,9 +556,9 @@ def main(cfg: DictConfig, **unused_kwargs):
 
 
     criterion = task.build_criterion(cfg.criterion)
-
-
-
+    
+    
+    
 
     # (optionally) Configure quantization
     if cfg.common.quantization_config_path is not None:
@@ -570,18 +570,18 @@ def main(cfg: DictConfig, **unused_kwargs):
     else:
         quantizer = None
 
-
+    
     # for model in models:
     #     model.decoder.add_adapter()
 
     # models[0].decoder.add_decoders(models[1:])
 
-
+    
 
     # Build trainer
     # trainer = Trainer(cfg, task, models[0], criterion, quantizer)
 
-
+    
     # for x, p in trainer.model.named_parameters():
     #     if 'adapter' in x:
     #         p.requires_grad = True
@@ -598,11 +598,11 @@ def main(cfg: DictConfig, **unused_kwargs):
     # model = MoETransformer(gate, decoders, cfg.model)
     # # Build trainer
     # trainer = Trainer(cfg, task, model, criterion, quantizer)
-
+    
     # if getattr(cfg.model, "desynchronize", False):
     #     for x, p in trainer.model.named_parameters():
     #         p.expert = True
-
+    
     logger.info("added adapter")
 
     # for x, p in trainer.model.named_parameters():
@@ -616,7 +616,7 @@ def main(cfg: DictConfig, **unused_kwargs):
         # else:
         #     p.requires_grad = True
         #     p.expert = True
-
+        
     # trainer.model.decoder.add_adapter(1)
     # for layer in trainer.model.decoder.layers:
     #     layer.add_adapter(1)
@@ -627,22 +627,22 @@ def main(cfg: DictConfig, **unused_kwargs):
     #         p.requires_grad = False
     #         p.requires_grad = True
         # p.expert = True
-
+            
     # logger.info(
     #     "num. shared model params: {} (num. trained: {})".format(
     #         sum(p.numel() for p in trainer.model.parameters() if not getattr(p, "expert", False)),
     #         sum(p.numel() for p in trainer.model.parameters() if not getattr(p, "expert", False) and p.requires_grad),
     #     )
     # )
-
+    
     # logger.info(
     #     "num. expert model params: {} (num. trained: {})".format(
     #         sum(p.numel() for p in trainer.model.parameters() if getattr(p, "expert", False)),
     #         sum(p.numel() for p in trainer.model.parameters() if getattr(p, "expert", False) and p.requires_grad),
     #     )
     # )
-
-
+    
+    
 
     logger.info(
         "training on {} devices (GPUs/TPUs)".format(
@@ -668,7 +668,7 @@ def main(cfg: DictConfig, **unused_kwargs):
         precomputed_prior = [float(x) for x in cfg.common_eval.precomputed_prior.split(',')]
     else:
         precomputed_prior = None
-
+    
     results, expert_probs,priors = dynamic_eval_lm(
         # trainer=trainer,
         models=models,
@@ -691,7 +691,7 @@ def main(cfg: DictConfig, **unused_kwargs):
         max_documents=cfg.common_eval.max_samples,
         max_train_documents=0,
         precomputed_prior=precomputed_prior
-    )
+    )        
     if results and expert_probs:
         expert_probs = [x.tolist()[0] for x in expert_probs]
         # priors = [x.tolist() for x in priors]

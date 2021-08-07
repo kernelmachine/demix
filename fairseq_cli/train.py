@@ -96,11 +96,11 @@ def main(cfg: FairseqConfig) -> None:
 
 
     if torch.distributed.is_initialized() and getattr(cfg.model, "desynchronize", False):
-
-
+        
+        
         if getattr(cfg.model, "sync_type") == "none":
             groups = [[x] for x in range(torch.distributed.get_world_size())]
-
+            
         elif getattr(cfg.model, "sync_type") == "manual":
             gps = getattr(cfg.model, "data_parallel_groups")
             gps = gps.split()
@@ -116,7 +116,7 @@ def main(cfg: FairseqConfig) -> None:
 
         logger.info(f"Data Parallel Groups: {groups}")
         process_group = process_groups[torch.distributed.get_rank(torch.distributed.group.WORLD)]
-
+        
         if getattr(cfg.model, "untie_parameters"):
             for x, p in model.named_parameters():
 
@@ -142,12 +142,12 @@ def main(cfg: FairseqConfig) -> None:
                     if "layers" in x or 'output_projection' in x:
                         p.expert = True
                         p.process_group = process_group
-
+                
                 elif getattr(cfg.model, "untie_parameters") == "input_output":
                     if "embed_tokens" in x or "embed_positions" in x or 'output_projection' in x:
                         p.expert = True
                         p.process_group = process_group
-
+                
                 elif getattr(cfg.model, "untie_parameters") == "transformer":
                     if "layers" in x:
                         p.expert = True
@@ -164,7 +164,7 @@ def main(cfg: FairseqConfig) -> None:
                     if any(ffn in x for ffn in ffns) and 'expert' not in x:
                         p.expert = True
                         p.process_group = process_group
-
+                
                 elif getattr(cfg.model, "untie_parameters") == "feedforward_l2":
                     every_other_layer = [f"layers.{z}" for z in range(0, getattr(cfg.model, "decoder_layers"), 2)]
                     ffns = ['fc1', 'fc2']
@@ -185,7 +185,7 @@ def main(cfg: FairseqConfig) -> None:
                     p.process_group = process_group
                 else:
                     raise Exception("value for untie_parameters is bad.")
-
+    
 
     if getattr(cfg.model, "adaptation", False):
     #     # if not getattr(cfg.model, "untie_parameters"):
@@ -200,8 +200,8 @@ def main(cfg: FairseqConfig) -> None:
                  p.requires_grad = False
             else:
                  p.requires_grad = True
-
-
+    
+    
 
     logger.info(
         "num. shared model params: {} (num. trainable: {})".format(
@@ -209,15 +209,15 @@ def main(cfg: FairseqConfig) -> None:
             sum(p.numel() for p in model.parameters() if not getattr(p, "expert", False) and p.requires_grad),
         )
     )
-
+    
     logger.info(
         "num. expert model params: {} (num. trainable: {})".format(
             sum(p.numel() for p in model.parameters() if getattr(p, "expert", False) ),
             sum(p.numel() for p in model.parameters() if getattr(p, "expert", False) and p.requires_grad),
         )
     )
-
-
+    
+    
 
     # (optionally) Configure quantization
     if cfg.common.quantization_config_path is not None:
@@ -520,7 +520,7 @@ def validate(
         )
         if cfg.common.tpu:
             itr = utils.tpu_data_loader(itr)
-
+        
         logger.info('got valid iterator on "{}" subset on rank {}'.format(
                 subset,
                 torch.distributed.get_rank()
