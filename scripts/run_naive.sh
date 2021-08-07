@@ -1,0 +1,36 @@
+srun --label python fairseq_cli/train.py     \
+            /private/home/suching/raw_data/data-bin/     \
+            --task multidomain_language_modeling     \
+            --sample-break-mode none     \
+            --log-format simple     \
+            --log-interval 50     \
+            --skip-invalid-size-inputs-valid-test     \
+            --validate-interval-updates 5000     \
+            --save-interval-updates 10000     \
+            --keep-interval-updates 1     \
+            --arch transformer_lm    \
+            --criterion cross_entropy     \
+            --lr-scheduler inverse_sqrt     \
+            --warmup-init-lr 1e-07     \
+            --lr 0.001               \
+            --tokens-per-sample 512          \
+            --weight-decay 0.01   \
+            --dropout 0.1  \
+            --optimizer adam \
+            --adam-betas '(0.9, 0.98)'  \
+            --clip-norm 0.0      \
+            --max-update 100000     \
+            --warmup-updates 8000     \
+            --save-dir final_results/data_parallel_domain_token         \
+            --batch-size-valid 2                        \
+            --train-domains 1b,cs,legal,med,openwebtext,realnews,reddit,reviews \
+            --eval-domains 1b,cs,legal,med,openwebtext,realnews,reddit,reviews \
+            --valid-subset valid_1b,valid_cs,valid_legal,valid_med,valid_openwebtext,valid_realnews,valid_reddit,valid_reviews \
+            --disable-validation \
+            --batch-size 16 \
+            --update-freq 1 \
+            --fp16 \
+            --fp16-no-flatten-grads \
+            --distributed-world-size 8 \
+            --distributed-port 12345 \
+            --add-domain-token

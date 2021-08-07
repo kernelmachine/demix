@@ -1,0 +1,41 @@
+srun --label python fairseq_cli/train.py     \
+/private/home/suching/data_proc/data-bin/     \
+--task multidomain_language_modeling     \
+--sample-break-mode none     \
+--log-format simple     \
+--log-interval 50     \
+--skip-invalid-size-inputs-valid-test     \
+--validate-interval-updates 5000     \
+--save-interval-updates 10000     \
+--keep-interval-updates 1     \
+--arch transformer_lm     \
+--criterion desynchronized_cross_entropy     \
+--lr-scheduler inverse_sqrt     \
+--warmup-init-lr 0.001     \
+--lr 0.001     \
+--batch-size 16     \
+--min-loss-scale 1e-10     \
+--tokens-per-sample 256     \
+--optimizer adafactor     \
+--weight-decay 0.0     \
+--decoder-attention-heads 4      \
+--decoder-layers 4     \
+--decoder-ffn-embed-dim 16384     \
+--dropout 0.1     \
+--attention-dropout 0.1     \
+--relu-dropout 0.1     \
+--max-update 100000     \
+--warmup-updates 10000     \
+--update-freq 1     \
+--clip-norm 0.0     \
+--save-dir ./desync_lm_bsz_128_shared_embed_output   \
+--required-batch-size-multiple 16      \
+--batch-size-valid 2      \
+--bucket-cap-mb 200                  \
+--wandb-project modular_lm           \
+--distributed-world-size 8     \
+--distributed-port 12323     \
+--ddp-backend no_c10d  \
+--desynchronize \
+--train-domains 1b,biomed,cs,legal,realnews,reviews,tweets,webtext \
+--eval-domains 1b,biomed,cs,legal,realnews,reviews,tweets,webtext
