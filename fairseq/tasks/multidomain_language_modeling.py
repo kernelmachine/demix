@@ -532,7 +532,7 @@ class MultidomainLanguageModelingTask(LegacyFairseqTask):
         else:
 
             ds = []
-            size_ratio = np.array([0.1] * len(domain_datasets))
+            size_ratio = np.array([1.0] * len(domain_datasets))
             for i, d in enumerate(domain_datasets):
                 d = ResamplingDataset(
                     domain_datasets[i],
