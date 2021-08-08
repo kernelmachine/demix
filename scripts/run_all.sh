@@ -8,8 +8,11 @@ SERIALIZATION_DIR=$6
 FILE_SUFFIX=$7
 
 # TODO: alphabetize this!
-domains=1b,cs,legal,med,anonymized_openwebtext,anonymized_realnews,reddit,anonymized_reviews;
-valid_subset=valid_1b,valid_cs,valid_legal,valid_med,valid_anonymized_openwebtext,valid_anonymized_realnews,valid_reddit,valid_anonymized_reviews;
+#domains=1b,cs,legal,med,anonymized_openwebtext,anonymized_realnews,reddit,anonymized_reviews;
+domains=ag_news,amazon,chemprot,citation_intent,hp-news,imdb,rct,sciie;
+
+# valid_subset=valid_1b,valid_cs,valid_legal,valid_med,valid_anonymized_openwebtext,valid_anonymized_realnews,valid_reddit,valid_anonymized_reviews;
+valid_subset=valid_ag_news,valid_amazon,valid_chemprot,valid_citation_intent,valid_hp-news,valid_imdb,valid_rct,valid_sciie;
 WANDB_PROJECT=gpt3_experiments
 
 TOKENS_PER_SAMPLE=1024;

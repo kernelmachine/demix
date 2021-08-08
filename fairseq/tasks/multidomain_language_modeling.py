@@ -493,7 +493,6 @@ class MultidomainLanguageModelingTask(LegacyFairseqTask):
 
 
         if split in self.args.train_subset.split(','):
-            from fairseq import pdb; pdb.set_trace()
             if self.args.recluster_data:
                 clusters = defaultdict(list)
 
