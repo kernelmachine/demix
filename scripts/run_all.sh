@@ -61,6 +61,7 @@ elif [[ $ARCH == *"gpt2_tiny"* ]]; then
      VALIDATION_INTERVAL=500;
      NUM_WARMUP_STEPS=$((${NUM_STEPS} * 8 / 100));
 elif [[ $ARCH == *"transformer_lm"* ]]; then
+     TOKENS_PER_SAMPLE=128;
      LR=5e-4;
      CLIP_NORM=0.1;
      UPDATE_FREQ=8;
