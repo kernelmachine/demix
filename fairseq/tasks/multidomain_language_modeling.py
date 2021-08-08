@@ -271,7 +271,7 @@ class MultidomainLanguageModelingTask(LegacyFairseqTask):
 
     def build_model(self, args):
         model = super().build_model(args)
-        
+
         for target in self.targets:
             if target not in model.supported_targets:
                 raise ValueError(
@@ -389,18 +389,18 @@ class MultidomainLanguageModelingTask(LegacyFairseqTask):
         #     seen = set()
         #     seen_add = seen.add
         #     return [x for x in seq if not (x in seen or seen_add(x))]
-            
+
         # unique_domains = dedup(train_domains + eval_domains)
-        
-            
+
+
         domain_datasets = []
-        
+
         for domain_id, domain in domains:
             split_path = os.path.join(data_path, domain, split)
             dataset = data_utils.load_indexed_dataset(
                 split_path, self.dictionary, self.args.dataset_impl, combine=combine
             )
-            
+
 
             if dataset is None:
                 continue
@@ -414,7 +414,7 @@ class MultidomainLanguageModelingTask(LegacyFairseqTask):
                 self.args.seed,
             )
 
-             
+
             dataset = TokenBlockDataset(
                 dataset,
                 dataset.sizes,
@@ -424,7 +424,7 @@ class MultidomainLanguageModelingTask(LegacyFairseqTask):
                 break_mode=self.args.sample_break_mode,
                 include_targets=True,
             )
-        
+
             add_eos_for_other_targets = (
                 self.args.sample_break_mode is not None
                 and self.args.sample_break_mode != "none"
@@ -478,7 +478,7 @@ class MultidomainLanguageModelingTask(LegacyFairseqTask):
 
         if self.args.recluster_data:
             domain_datasets = [ClusterDataset(domain_dataset, vectorizer, svd, kmeans) for domain_dataset in domain_datasets]
-        
+
         dataset_lengths = np.array(
             [len(d) for d in domain_datasets],
             dtype=float,
@@ -490,12 +490,13 @@ class MultidomainLanguageModelingTask(LegacyFairseqTask):
             )
         )
 
-        
-        
+
+
         if split in self.args.train_subset.split(','):
+            from fairseq import pdb; pdb.set_trace()
             if self.args.recluster_data:
                 clusters = defaultdict(list)
-        
+
                 for dataset in tqdm(domain_datasets, disable=torch.distributed.get_rank() != 0):
                     indices = defaultdict(list)
                     loader = DataLoader(dataset, batch_size=16, num_workers=16)
@@ -530,9 +531,9 @@ class MultidomainLanguageModelingTask(LegacyFairseqTask):
             else:
                 dataset = ConcatDataset(domain_datasets)
         else:
-            
+
             ds = []
-            size_ratio = np.array([0.1] * len(domain_datasets)) 
+            size_ratio = np.array([0.1] * len(domain_datasets))
             for i, d in enumerate(domain_datasets):
                 d = ResamplingDataset(
                     domain_datasets[i],
@@ -543,8 +544,8 @@ class MultidomainLanguageModelingTask(LegacyFairseqTask):
                 )
                 ds.append(d)
             dataset = ConcatDataset(ds)
-                
-            
+
+
             # domain_splits = [split]
             # for domain_id, domain_dataset in enumerate(domain_datasets):
             #     split_name = split + "_" + eval_domains[domain_id]
@@ -554,7 +555,7 @@ class MultidomainLanguageModelingTask(LegacyFairseqTask):
             # # [TODO]: This is hacky for now to print validation ppl for each
             # # language individually. Maybe need task API changes to allow it
             # # in more generic ways.
-            
+
         # if self.args.domain_parallel:
         self.datasets[split] = dataset
         # else:
@@ -567,7 +568,7 @@ class MultidomainLanguageModelingTask(LegacyFairseqTask):
         #         dataset.sizes,
         #     ],
         # )
-            
+
     def eval_lm_dataloader(
         self,
         dataset,
@@ -600,7 +601,7 @@ class MultidomainLanguageModelingTask(LegacyFairseqTask):
             num_workers=num_workers,
             data_buffer_size=data_buffer_size,
         ).next_epoch_itr(shuffle=False)
-        
+
     @property
     def source_dictionary(self):
         """Return the :class:`~fairseq.data.Dictionary` for the language
@@ -612,7 +613,7 @@ class MultidomainLanguageModelingTask(LegacyFairseqTask):
         """Return the :class:`~fairseq.data.Dictionary` for the language
         model."""
         return self.output_dictionary
-    
+
     def build_dataset_for_inference(self, src_tokens, src_lengths, **kwargs):
         """
         Generate batches for inference. We prepend an eos token to src_tokens
@@ -657,4 +658,3 @@ class MultidomainLanguageModelingTask(LegacyFairseqTask):
             },
             sizes=[np.array(src_lengths)],
         )
-

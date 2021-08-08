@@ -54,14 +54,16 @@ elif [[ $ARCH == *"gpt2_tiny"* ]]; then
      CLIP_NORM=0.1;
      UPDATE_FREQ=8;
      NUM_STEPS=725000;
-     SAVE_INTERVAL_UPDATES=200;
+     SAVE_INTERVAL_UPDATES=500;
+     VALIDATION_INTERVAL=500;
      NUM_WARMUP_STEPS=$((${NUM_STEPS} * 8 / 100));
 elif [[ $ARCH == *"transformer_lm"* ]]; then
      LR=5e-4;
      CLIP_NORM=0.1;
      UPDATE_FREQ=8;
      NUM_STEPS=725000;
-     SAVE_INTERVAL_UPDATES=200;
+     SAVE_INTERVAL_UPDATES=500;
+     VALIDATION_INTERVAL=500;
      NUM_WARMUP_STEPS=$((${NUM_STEPS} * 8 / 100));
 fi;
 
