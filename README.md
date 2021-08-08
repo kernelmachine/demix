@@ -16,7 +16,6 @@ Additionally, please make sure you have the dependencies above installed (check 
 
 ## Dataset
 
-
 The multidomain dataset scripts are housed in another repository, located [here](https://github.com/kernelmachine/demix-data). Clone that repository and follow instructions to setup data to train on.
 
 ## Basic Training
@@ -58,22 +57,21 @@ export PATH_TO_CHECKPOINT=/path/to/serialization/dir/checkpoint_last.pt
 export OUTPUT_PATH=eval_output.jsonl
 export SPLIT=valid
 export DOMAIN=XXX
-export DOMAIN_TOKEN=XXX
-bash scripts/eval_lm_single.sh $DATA_PATH $PATH_TO_CHECKPOINT $OUTPUT_PATH $SPLIT $DOMAIN $DOMAIN_TOKEN
+bash scripts/eval_lm_single.sh $DATA_PATH $PATH_TO_CHECKPOINT $OUTPUT_PATH $SPLIT $DOMAIN
 ```
 
 To evaluate on test data, set `export SPLIT=test`
 
 The same script is used for the other baselines.
 
-For + domain token, you can additionally supply a domain token to use at test time:
+For +domain token model, you can additionally supply a domain token to use at test time:
 
 ```bash
 export DOMAIN_TOKEN=XXX
 bash scripts/eval_lm_single.sh $DATA_PATH $PATH_TO_CHECKPOINT $OUTPUT_PATH $SPLIT $DOMAIN $DOMAIN_TOKEN
 ```
 
-For demix mdoel, you can supply the checkpoint from a GPU on a particular rank (to specify the use of a specific domain expert)
+For the demix model, you can supply the checkpoint from a GPU on a particular rank (to specify the use of a specific domain expert)
 
 ```bash
 export PATH_TO_CHECKPOINT=/path/to/serialization/dir/checkpoint_last-rank-X.pt
@@ -91,7 +89,7 @@ export DOMAIN=XXX
 bash scripts/mix_experts.sh $DATA_PATH $MODEL_NAME $DOMAIN $DOMAIN $POSTERIOR_OUTPUT estimate
 ```
 
-Then, we open $POSTERIOR_OUTPUT, copying the `posterior` value of the last line in that file.
+Then, we open `$POSTERIOR_OUTPUT`, copying the `posterior` value of the last line in that file.
 
 We use this posterior as the domain prior (supplied as a string) when evaluating on test data, like so:
 
@@ -99,7 +97,7 @@ We use this posterior as the domain prior (supplied as a string) when evaluating
 export DATA_PATH=/path/to/multidomain/data/
 export MODEL_NAME=demix_32_GPUs_transformer_lm_gpt3_small_test
 export DOMAIN=XXX
-bash scripts/mix_experts.sh $DATA_PATH $MODEL_NAME $DOMAIN $DOMAIN $POSTERIOR_OUTPUT eval '0.2,0.5,0.3'
+bash scripts/mix_experts.sh $DATA_PATH $MODEL_NAME $DOMAIN $DOMAIN $POSTERIOR_OUTPUT eval '0.1,0.2,0.3,0.4'
 ```
 
 ## Adapting the Language Model
