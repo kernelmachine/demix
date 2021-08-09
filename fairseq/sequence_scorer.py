@@ -70,7 +70,7 @@ class SequenceScorer(object):
     #     # compute scores for each model in the ensemble
     #     avg_probs = None
     #     avg_attn = None
-        
+
     #     for model in models:
     #         model.eval()
     #         if not kwargs.get('decoder_out'):
@@ -254,7 +254,7 @@ class SequenceScorer(object):
                     model_probs = torch.cat(gather_probs, dim=0)
                 else:
                     model_probs = torch.cat(model_probs, dim=0)
-                ## averaging
+                ## simple averaging
                 if kwargs.get('ensemble_average'):
                     avg_probs = torch.mean(model_probs, dim=0)
                     weights = torch.tensor([ 1 / len_models]).repeat(len_models, model_probs.shape[1], model_probs.shape[2]).to(model_probs)
@@ -270,29 +270,29 @@ class SequenceScorer(object):
                         # uniform
                         priors = [1 / len_models] * len_models
                         temperature = 1
-            
+
                     # calculate normalization
                     denom = weights.clone()
                     for ix, prior in enumerate(priors):
                         denom[ix, :].mul_(prior)
-                    
+
                     denom = denom.sum(0)
 
                     # calculate posterior
                     for ix, prior in enumerate(priors):
                         weights[ix, :].mul_(prior).div_(denom)
-                    
+
                     # add uniform posterior probability at start of block
                     if kwargs.get('prior') is not None:
                         beginning_weights = torch.tensor([ 1 / len_models]).repeat(len_models, model_probs.shape[1], 1).to(weights)
                     else:
                         beginning_weights = torch.tensor(priors).float().repeat(model_probs.shape[1], 1).t().unsqueeze(2).to(weights)
-                    
+
                     weights = torch.cat([beginning_weights, weights], -1)
-                    
+
                     ## get weighted mixture
                     avg_probs = torch.einsum("ebs,ebs->bs", (weights,model_probs))
-        
+
 
                 avg_probs.log_()
                 if avg_attn is not None:
@@ -300,8 +300,8 @@ class SequenceScorer(object):
                         avg_attn.div_(len_models)
                     else:
                         avg_attn.div_(len_models)
-                
-            else:                
+
+            else:
                 weights = None
                 avg_probs.div_(len_models)
                 avg_probs.log_()
@@ -313,7 +313,7 @@ class SequenceScorer(object):
             if avg_attn is not None:
                 avg_attn.div_(len_models)
             src = avg_probs
-        
+
         bsz = avg_probs.size(0)
         hypos = []
         start_idxs = sample["start_indices"] if "start_indices" in sample else [0] * bsz

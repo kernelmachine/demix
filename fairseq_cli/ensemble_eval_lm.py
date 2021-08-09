@@ -58,12 +58,12 @@ def evaluate(models, sample, device, gen_timer, scorer, bpe_toks, output_word_pr
             raise ValueError("if using cached_prior, please supply a prior.")
             sys.exit(1)
         ensemble_weighted_average = True
-        ensemble_average = False
+        ensemble_average = None
     elif ensemble_type == "updating_prior":
         ensemble_weighted_average = True
-        ensemble_average = False
+        ensemble_average = None
     elif ensemble_type == "simple_average":
-        ensemble_weighted_average = False
+        ensemble_weighted_average = None
         ensemble_average = True
     else:
         raise ValueError("unrecognized ensembling type.")
