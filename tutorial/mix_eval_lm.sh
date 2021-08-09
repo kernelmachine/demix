@@ -41,7 +41,7 @@ if [[ $estimate == *"estimate"* ]]; then
     --train-subset train_${target_domain} \
     --partial-load \
     --results-path ${results_path} \
-    --ensemble-type ${ensemble_type} \
+    --ensemble-type "updating_prior" \
     --max-samples 100;
 else
 	target_eval_split=test_${target_domain};
