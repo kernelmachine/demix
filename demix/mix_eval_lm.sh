@@ -42,6 +42,8 @@ if [[ $estimate == *"estimate"* ]]; then
     --partial-load \
     --ensemble-type "updating_prior" \
     --results-path ${results_path} \
+    --distributed-world-size 8 \
+    --distributed-port 12345 \
     --max-samples 100;
 else
 	target_eval_split=test_${target_domain};
@@ -76,5 +78,7 @@ else
     --partial-load \
     --results-path ${results_path} \
     --ensemble-type ${ensemble_type} \
+    --distributed-world-size 8 \
+    --distributed-port 12345 \
     --precomputed-prior ${precomputed_prior}
 fi;
