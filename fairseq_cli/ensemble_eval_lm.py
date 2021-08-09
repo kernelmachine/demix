@@ -279,7 +279,7 @@ def dynamic_eval_lm(
             if not precomputed_prior:
                 prior = pd.DataFrame(np.concatenate(expert_probs_all,0)).ewm(alpha=0.3, adjust=False).mean().tail(n=1).to_numpy().squeeze(0)
             priors_all.append(prior)
-        dev_batch_iterator.tqdm.set_description(target_ppl.item())
+        dev_batch_iterator.tqdm.set_description(f"ppl: {target_ppl.item()}")
     return target_ppls, expert_probs_all, priors_all
 
 
