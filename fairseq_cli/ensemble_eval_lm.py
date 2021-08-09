@@ -279,7 +279,8 @@ def dynamic_eval_lm(
             if not precomputed_prior:
                 prior = pd.DataFrame(np.concatenate(expert_probs_all,0)).ewm(alpha=0.3, adjust=False).mean().tail(n=1).to_numpy().squeeze(0)
             priors_all.append(prior)
-        dev_batch_iterator.tqdm.set_description(f"ppl: {target_ppl.item()}")
+        if torch.distributed.get_rank() == 0:
+            dev_batch_iterator.tqdm.set_description(f"ppl: {target_ppl.item()}")
     return target_ppls, expert_probs_all, priors_all
 
 
@@ -421,16 +422,23 @@ def main(cfg: DictConfig, **unused_kwargs):
     )
 
 
+    if torch.distributed.get_rank() == 0:
+        dev_itr = progress_bar.progress_bar(
+            dev_itr,
+            log_format=cfg.common.log_format,
+            log_interval=cfg.common.log_interval,
+            level=0,
+            default_log_format="tqdm",
+        )
 
-    dev_itr = progress_bar.progress_bar(
-        dev_itr,
-        log_format=cfg.common.log_format,
-        log_interval=cfg.common.log_interval,
-        level=0,
-        default_log_format="tqdm",
-    )
-
-
+    else:
+        dev_itr = progress_bar.progress_bar(
+            dev_itr,
+            log_format=cfg.common.log_format,
+            log_interval=cfg.common.log_interval,
+            level=0,
+            default_log_format="simple",
+        )
     criterion = task.build_criterion(cfg.criterion)
 
 
