@@ -92,23 +92,24 @@ bash tutorial/eval_lm.sh $DATA_PATH $PATH_TO_CHECKPOINT $OUTPUT_PATH $SPLIT $DOM
 
 First, we estimate the posterior distribution on 100 sequences of validation data of the domain using the following command:
 
-
-
 ```bash
 export DATA_BIN=${DATA_DIR}/data-bin
 export DOMAIN=imdb
-bash tutorial/mix_eval_lm.sh $DATA_BIN  ${SERIALIZATION_DIR}/checkpoint_last-rank-0.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-1.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-2.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-3.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-4.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-5.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-6.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-7.pt $DOMAIN test.jsonl estimate;
+export POSTERIOR_OUTPUT=posteriors.jsonl
+bash tutorial/mix_eval_lm.sh $DATA_BIN  ${SERIALIZATION_DIR}/checkpoint_last-rank-0.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-1.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-2.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-3.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-4.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-5.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-6.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-7.pt $DOMAIN $POSTERIOR_OUTPUT estimate;
 ```
 
-Then, we open `$POSTERIOR_OUTPUT`, copying the `posterior` value of the last line in that file.
+Then, we open `$POSTERIOR_OUTPUT`, copying the `exp_avg_posterior` value of the last line in that file:
+
+
+```bash
+export POSTERIOR=$(tail -n 1 $POSTERIOR_OUTPUT | jq -rc '.exp_avg_posterior | join(",")')
+```
 
 We use this posterior as the domain prior (supplied as a string) when evaluating on test data, like so:
 
 ```bash
-export DATA_PATH=/path/to/multidomain/data/
-export MODEL_NAME=demix_32_GPUs_transformer_lm_gpt3_small_test
-export DOMAIN=XXX
-bash scripts/mix_experts.sh $DATA_PATH $MODEL_NAME $DOMAIN $DOMAIN $POSTERIOR_OUTPUT eval '0.1,0.2,0.3,0.4'
+bash scripts/mix_experts.sh $DATA_PATH $MODEL_NAME $DOMAIN $DOMAIN $POSTERIOR_OUTPUT eval $POSTERIOR
 ```
 
 ## Adapting the Language Model

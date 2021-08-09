@@ -486,7 +486,7 @@ def main(cfg: DictConfig, **unused_kwargs):
         expert_probs = [x.tolist()[0] for x in expert_probs]
         res = []
         for x,y,z in zip(results, expert_probs, priors):
-            res.append({"ppl": x, "expert_probs": y, "prior": z})
+            res.append({"ppl": x, "posterior": y, "exp_avg_posterior": z})
         df = pd.DataFrame(res)
         df.to_json(cfg.common_eval.results_path, lines=True, orient='records')
         logger.info(f"final ppl: {results[-1]}")
