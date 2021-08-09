@@ -420,27 +420,16 @@ def main(cfg: DictConfig, **unused_kwargs):
         data_buffer_size=cfg.dataset.data_buffer_size,
         context_window=cfg.eval_lm.context_window,
     )
+    if not sys.stderr.isatty():
+        from fairseq import pdb; pdb.set_trace()
+    dev_itr = progress_bar.progress_bar(
+        dev_itr,
+        log_format=cfg.common.log_format,
+        log_interval=cfg.common.log_interval,
+        level=0,
+        default_log_format="tqdm",
+    )
 
-
-    if torch.distributed.get_rank() == 0:
-        import sys
-        sys.stderr = open('err.txt', 'w+')
-        dev_itr = progress_bar.progress_bar(
-            dev_itr,
-            log_format=cfg.common.log_format,
-            log_interval=cfg.common.log_interval,
-            level=0,
-            default_log_format="tqdm",
-        )
-
-    else:
-        dev_itr = progress_bar.progress_bar(
-            dev_itr,
-            log_format=cfg.common.log_format,
-            log_interval=cfg.common.log_interval,
-            level=0,
-            default_log_format="simple",
-        )
     criterion = task.build_criterion(cfg.criterion)
 
 
