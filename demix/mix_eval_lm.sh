@@ -40,6 +40,7 @@ if [[ $estimate == *"estimate"* ]]; then
     --log-format tqdm \
     --train-subset train_${target_domain} \
     --partial-load \
+    --ensemble-type "updating_prior" \
     --results-path ${results_path} \
     --max-samples 100;
 else

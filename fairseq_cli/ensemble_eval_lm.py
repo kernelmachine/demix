@@ -446,7 +446,6 @@ def main(cfg: DictConfig, **unused_kwargs):
         quantizer = None
 
 
-    logger.info("added adapter")
 
     logger.info(
         "training on {} devices (GPUs/TPUs)".format(
