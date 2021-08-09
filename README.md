@@ -97,7 +97,7 @@ First, we estimate the posterior distribution on 100 sequences of validation dat
 export DATA_BIN=${DATA_DIR}/data-bin
 export DOMAIN=imdb
 export SERIALIZATION_DIR=
-bash scripts/ensemble_eval_lm.sh $DATA_BIN  ${SERIALIZATION_DIR}/checkpoint_last-rank-0.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-1.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-2.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-3.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-4.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-5.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-6.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-7.pt $DOMAIN $DOMAIN test.jsonl estimate;
+bash scripts/ensemble_eval_lm.sh $DATA_BIN  ${SERIALIZATION_DIR}/checkpoint_last-rank-0.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-1.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-2.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-3.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-4.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-5.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-6.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-7.pt $DOMAIN test.jsonl estimate;
 
 # bash scripts/mix_experts.sh $DATA_PATH $MODEL_NAME $DOMAIN $DOMAIN $POSTERIOR_OUTPUT estimate
 ```

@@ -5,6 +5,9 @@ results_path=$4
 estimate=$5
 precomputed_prior=$6
 
+# Ensemble type, one of "simple_average","cached_prior", "updating_prior", "uniform_prior"
+ensemble_type=$7
+
 if [[ $estimate == *"estimate"* ]]; then
 	echo "estimating probabilities..."
 	target_eval_split=valid_${target_domain};
@@ -71,5 +74,6 @@ else
     --train-subset train_${target_domain} \
     --partial-load \
     --results-path ${results_path} \
+    --ensemble-type ${ensemble_type} \
     --precomputed-prior ${precomputed_prior}
 fi;
