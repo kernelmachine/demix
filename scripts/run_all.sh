@@ -12,12 +12,13 @@ DEBUG=$8
 if [[ $DEBUG == "debug" ]]; then
      domains=ag_news,amazon,chemprot,citation_intent,hp-news,imdb,rct,1b_test;
      valid_subset=valid_ag_news,valid_amazon,valid_chemprot,valid_citation_intent,valid_hp-news,valid_imdb,valid_rct,valid_1b_test;
+     WANDB_PROJECT=debug
 else;
      domains=1b,cs,legal,med,anonymized_openwebtext,anonymized_realnews,reddit,anonymized_reviews;
      valid_subset=valid_1b,valid_cs,valid_legal,valid_med,valid_anonymized_openwebtext,valid_anonymized_realnews,valid_reddit,valid_anonymized_reviews;
+     WANDB_PROJECT=gpt3_experiments
 fi;
 
-WANDB_PROJECT=gpt3_experiments
 
 TOKENS_PER_SAMPLE=1024;
 BATCH_SIZE=2;
@@ -61,7 +62,7 @@ elif [[ $ARCH == *"transformer_lm"* ]]; then
      LR=5e-4;
      CLIP_NORM=0.1;
      UPDATE_FREQ=8;
-     NUM_STEPS=725000;
+     NUM_STEPS=100000;
      SAVE_INTERVAL_UPDATES=10000;
      VALIDATION_INTERVAL=1000;
      NUM_WARMUP_STEPS=$((${NUM_STEPS} * 8 / 100));
