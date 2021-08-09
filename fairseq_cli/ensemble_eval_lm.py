@@ -60,15 +60,9 @@ def evaluate(models, sample, device, gen_timer, scorer, bpe_toks, output_word_pr
         ensemble_weighted_average = True
         ensemble_average = False
     elif ensemble_type == "updating_prior":
-         # UNCOMMENT FOR UPDATING PRIOR
-        precomputed_prior = False
-        prior = None
         ensemble_weighted_average = True
         ensemble_average = False
     elif ensemble_type == "simple_average":
-         # UNCOMMENT FOR UPDATING PRIOR
-        precomputed_prior = False
-        prior = None
         ensemble_weighted_average = False
         ensemble_average = True
     else:
@@ -261,7 +255,7 @@ def dynamic_eval_lm(
         prior = None
 
     if ensemble_type == 'updating_prior':
-        precomputed_prior = False
+        precomputed_prior = None
         prior = None
 
     for ix, sample in enumerate(dev_batch_iterator):
