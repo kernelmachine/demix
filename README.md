@@ -18,7 +18,15 @@ Additionally, please make sure you have the dependencies above installed (check 
 
 The multidomain dataset scripts are housed in another repository, located [here](https://github.com/kernelmachine/demix-data). Clone that repository and follow instructions to setup data to train on.
 
+Follow that tutorial to generate the data-bins on eight mini domains.
 ## Basic Training
+
+After setting up those domains, run the following to train a small language model:
+
+```bash
+bash scripts/run_all.sh 8 12344 transformer_lm demix /private/home/suching/demix-data/example_domains/data-bin/ /path/to/serialization/dir/ test debug
+```
+
 
 We have provided a simple script `scripts/run_all.sh` with all hyperparameter preset to help replicate results in the paper. Note that training assumes you are running on a multi-node GPU cluster with SLURM.
 
