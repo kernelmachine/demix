@@ -22,69 +22,70 @@ Follow that tutorial to generate data-bins on eight (small) example domains.
 
 ## Basic Training
 
-After setting up those domains, run the following to train a small language model:
+After setting up those domains, run the following to train a small language model. Note that the scripts in this paper assume you are running on a multi-node GPU cluster with SLURM.
+
+
+First, allocate some nodes, with GPUs with at least 32GB of RAM. Here we allocate 1 node with 8 volta32GB GPUs.
+
 
 ```bash
-bash scripts/run_all.sh 8 12344 transformer_lm demix /private/home/suching/demix-data/example_domains/data-bin/ ${SERIALIZATION_DIR}/ test debug
+
+salloc --gpus-per-node 8 --nodes 1  -C 'volta32gb' --ntasks-per-node 8 --cpus-per-task 10 --mem 400G --time XXX --partition YYY
 ```
 
-
-We have provided a simple script `scripts/run_all.sh` with all hyperparameter preset to help replicate results in the paper. Note that training assumes you are running on a multi-node GPU cluster with SLURM.
-
-First, allocate some nodes, with GPUs with at least 32GB of RAM. Here we allocate 4 nodes with 8 GPUs per node, so 32 GPUs in total.
+Then run:
 
 ```bash
-salloc --gpus-per-node 8 --nodes 4  -C 'volta32gb' --ntasks-per-node 8 --cpus-per-task 10 --mem 400G --time XXX --partition YYY
-```
-
-The `scripts/run_all.sh` follows a common format:
-
-```bash
-export NUM_GPUS=32
+export NUM_GPUS=8
 export DISTRIBUTED_PORT=12345
 export MODEL=transformer_lm_gpt3_small
 export EXPERIMENT=demix
-export DATA_PATH=/path/to/multidomain/data/
-export EXPERIMENT_SUFFIX=test
+export DATA_BIN=${DATA_PATH}/data-bin/
+export EXPERIMENT_SUFFIX=tutorial
 export SERIALIZATION_DIR=/path/to/serialization/dir
-bash scripts/run_all.sh $NUM_GPUS $DISTRIBUTED_PORT $MODEL $EXPERIMENT $DATA_PATH $SERIALIZATION_DIR $EXPERIMENT_SUFFIX
+bash tutorial/train.sh $NUM_GPUS $DISTRIBUTED_PORT $MODEL $EXPERIMENT $DATA_BIN $SERIALIZATION_DIR $EXPERIMENT_SUFFIX
 ```
+
+This will output a trained language model in `${SERIALIZATION_DIR}`
+
 
 To train balanced dense LM, set `export EXPERIMENT=dense`, to train unbalanced dense LM, set `export EXPERIMENT=unbalanced`, to train +domain token LM , set `export EXPERIMENT=domain_token`.
 
+We have provided a simple script `demix/train.sh`, with the same interface, with all hyperparameter preset to help replicate results in the paper.
+
 ## Evaluation
 
-We have two ways to evaluate the demix language model, with and without mixing experts.
+We have two ways to evaluate the demix language model: with and without mixing experts.
 
 ### Evaluating without mixing experts
 
 To evaluate the language model _without_ mixing experts:
 
 ```bash
-export DATA_PATH=/path/to/multidomain/data/
+export DATA_BIN=${DATA_PATH}/data-bin/
 export PATH_TO_CHECKPOINT=${SERIALIZATION_DIR}/checkpoint_last.pt
 export OUTPUT_PATH=eval_output.jsonl
 export SPLIT=valid
 export DOMAIN=XXX
-bash scripts/eval_lm_single.sh $DATA_PATH $PATH_TO_CHECKPOINT $OUTPUT_PATH $SPLIT $DOMAIN
+bash tutorial/eval_lm.sh $DATA_BIN $PATH_TO_CHECKPOINT $OUTPUT_PATH $SPLIT $DOMAIN
 ```
 
 To evaluate on test data, set `export SPLIT=test`
 
 The same script is used for the other baselines.
 
-For +domain token model, you can additionally supply a domain token to use at test time:
+For the +domain token model, you can additionally supply a domain token to use at test time:
 
 ```bash
 export DOMAIN_TOKEN=XXX
-bash scripts/eval_lm_single.sh $DATA_PATH $PATH_TO_CHECKPOINT $OUTPUT_PATH $SPLIT $DOMAIN $DOMAIN_TOKEN
+bash tutorial/eval_lm.sh $DATA_PATH $PATH_TO_CHECKPOINT $OUTPUT_PATH $SPLIT $DOMAIN $DOMAIN_TOKEN
 ```
 
 For the demix model, you can supply the checkpoint from a GPU on a particular rank (to specify the use of a specific domain expert)
 
 ```bash
-export PATH_TO_CHECKPOINT=${SERIALIZATION_DIR}/checkpoint_last-rank-X.pt
-bash scripts/eval_lm_single.sh $DATA_PATH $PATH_TO_CHECKPOINT $OUTPUT_PATH $SPLIT $DOMAIN $DOMAIN_TOKEN
+export PATH_TO_CHECKPOINT=${SERIALIZATION_DIR}/checkpoint_last-rank-0.pt
+bash tutorial/eval_lm.sh $DATA_PATH $PATH_TO_CHECKPOINT $OUTPUT_PATH $SPLIT $DOMAIN $DOMAIN_TOKEN
 ```
 
 ### Evaluating with mixing experts
@@ -96,10 +97,7 @@ First, we estimate the posterior distribution on 100 sequences of validation dat
 ```bash
 export DATA_BIN=${DATA_DIR}/data-bin
 export DOMAIN=imdb
-export SERIALIZATION_DIR=
-bash scripts/ensemble_eval_lm.sh $DATA_BIN  ${SERIALIZATION_DIR}/checkpoint_last-rank-0.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-1.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-2.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-3.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-4.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-5.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-6.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-7.pt $DOMAIN test.jsonl estimate;
-
-# bash scripts/mix_experts.sh $DATA_PATH $MODEL_NAME $DOMAIN $DOMAIN $POSTERIOR_OUTPUT estimate
+bash tutorial/mix_eval_lm.sh $DATA_BIN  ${SERIALIZATION_DIR}/checkpoint_last-rank-0.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-1.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-2.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-3.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-4.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-5.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-6.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-7.pt $DOMAIN test.jsonl estimate;
 ```
 
 Then, we open `$POSTERIOR_OUTPUT`, copying the `posterior` value of the last line in that file.

@@ -11,7 +11,7 @@ ensemble_type=$7
 if [[ $estimate == *"estimate"* ]]; then
 	echo "estimating probabilities..."
 	target_eval_split=valid_${target_domain};
-   python fairseq_cli/ensemble_eval_lm.py $data_bin \
+   srun --label python fairseq_cli/ensemble_eval_lm.py $data_bin \
     --path $model \
     --gen-subset $target_eval_split \
     --target-domain train_${target_domain}\
@@ -40,12 +40,14 @@ if [[ $estimate == *"estimate"* ]]; then
     --log-format tqdm \
     --train-subset train_${target_domain} \
     --partial-load \
-    --results-path ${results_path} \
     --ensemble-type "updating_prior" \
+    --results-path ${results_path} \
+    --distributed-world-size 8 \
+    --distributed-port 12345 \
     --max-samples 100;
 else
 	target_eval_split=test_${target_domain};
-    python fairseq_cli/ensemble_eval_lm.py $data_bin \
+    srun --label python fairseq_cli/ensemble_eval_lm.py $data_bin \
     --path $model \
     --gen-subset $target_eval_split \
     --target-domain train_${target_domain}\
@@ -76,5 +78,7 @@ else
     --partial-load \
     --results-path ${results_path} \
     --ensemble-type ${ensemble_type} \
+    --distributed-world-size 8 \
+    --distributed-port 12345 \
     --precomputed-prior ${precomputed_prior}
 fi;
