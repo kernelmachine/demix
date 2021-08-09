@@ -31,7 +31,7 @@ from fairseq.trainer import Trainer
 from fairseq.data import ResamplingDataset
 from fairseq.models.moe_model import MoETransformer
 from fairseq.modules.moe.top1gate import Top1Gate
- 
+
 
 
 logging.basicConfig(
@@ -43,103 +43,40 @@ logging.basicConfig(
 logger = logging.getLogger("fairseq_cli.eval_lm")
 
 
-
-class Adapter(nn.Module):
-    """
-    Implementation of a single Adapter block.
-    """
-
-    def __init__(
-        self,
-        input_size,
-        down_sample=None,
-        non_linearity="relu",
-        add_layer_norm_before=True,
-        add_layer_norm_after=False,
-        residual_before_ln=True,
-    ):
-        super().__init__()
-
-        self.input_size = input_size
-        # self.add_layer_norm_before = add_layer_norm_before
-        # self.add_layer_norm_after = add_layer_norm_after
-        # self.residual_before_ln = residual_before_ln
-
-        # # list for all modules of the adapter, passed into nn.Sequential()
-        # seq_list = []
-
-        # # If we want to have a layer norm on input, we add it to seq_list
-        # if self.add_layer_norm_before:
-        #     self.adapter_norm_before = nn.LayerNorm(self.input_size)
-        #     seq_list.append(self.adapter_norm_before)
-
-        # # if a downsample size is not passed, we just half the size of the original input
-        # self.down_sample = down_sample
-        # if down_sample is None:
-        #     self.down_sample = self.input_size // 2
-
-        # # Linear down projection of the input
-        # seq_list.append(nn.Linear(self.input_size, self.down_sample))
-
-        # # select non-linearity
-        # self.non_linearity = utils.get_activation_fn("relu")
-
-        # # sequential adapter, first downproject, then non-linearity then upsample. In the forward pass we include the
-        # # residual connection
-        # self.adapter_down = nn.Sequential(*seq_list)
-
-        # Up projection to input size
-        self.adapter_up = nn.Linear(self.input_size, 1)
-
-        # If we want to have a layer norm on output, we apply it later after a separate residual connection
-        # This means that we learn a new output layer norm, which replaces another layer norm learned in the bert layer
-        # if self.add_layer_norm_after:
-        #     self.adapter_norm_after = nn.LayerNorm(50272)
-
-
-    def forward(self, x , residual_input=None):
-        # if residual_input is None:
-        #     residual_input = x
-        # down = self.adapter_down(x)
-        # down = self.non_linearity(down)
-        output = self.adapter_up(x)
-
-        # # apply residual connection before layer norm if configured in this way
-        # if self.residual_before_ln:
-        #     output = output + residual_input
-
-        # # apply layer norm if available
-        # if self.add_layer_norm_after:
-        #     output = self.adapter_norm_after(output)
-
-        # # if residual should be applied after layer norm, apply it here
-        # # if not self.residual_before_ln:
-        # #     output = output + residual_input
-
-        return output
-
-
-def interleave(*args):
-    iters = map(iter, args)
-    while iters:
-        it = random.choice(iters)
-        try:
-            yield next(it)
-        except StopIteration:
-            iters.remove(it)
-
-
-def evaluate(models, sample, device, gen_timer, scorer, bpe_toks, output_word_probs, output_word_stats, remove_bos_token=False, prior=None):
+def evaluate(models, sample, device, gen_timer, scorer, bpe_toks, output_word_probs, output_word_stats, remove_bos_token=False, ensemble_type="cached_prior", prior=None):
     score_sum = 0
     count = 0
-    
+
     sample = utils.move_to_cuda(sample, device=device % 8)
 
     gen_timer.start()
-    
+
     if isinstance(prior, list):
         prior = torch.tensor(prior).float()
-    hypos = scorer.generate(models, sample, ensemble=True, ensemble_weighted_average=True, prior=prior,all_reduce=torch.distributed.is_initialized())
+    if ensemble_type == "cached_prior":
+        if not prior:
+            raise ValueError("if using cached_prior, please supply a prior.")
+            sys.exit(1)
+        ensemble_weighted_average = True
+        ensemble_average = False
+    elif ensemble_type == "updating_prior":
+         # UNCOMMENT FOR UPDATING PRIOR
+        precomputed_prior = False
+        prior = None
+        ensemble_weighted_average = True
+        ensemble_average = False
+    elif ensemble_type == "simple_average":
+         # UNCOMMENT FOR UPDATING PRIOR
+        precomputed_prior = False
+        prior = None
+        ensemble_weighted_average = False
+        ensemble_average = True
+    else:
+        raise ValueError("unrecognized ensembling type.")
+        sys.exit(1)
+
+    hypos = scorer.generate(models, sample, ensemble=True, ensemble_weighted_average=ensemble_weighted_average, ensemble_average=ensemble_average, prior=prior,all_reduce=torch.distributed.is_initialized())
+
     gen_timer.stop(sample["ntokens"])
     expert_probs = []
     for i, hypos_i in enumerate(hypos):
@@ -150,7 +87,6 @@ def evaluate(models, sample, device, gen_timer, scorer, bpe_toks, output_word_pr
         tgt_len = tokens.numel()
         pos_scores = hypo["positional_scores"].float()
         if remove_bos_token:
-            # assert hypo["tokens"][0].item() == target_dictionary.bos()
             tokens = tokens[1:]
             pos_scores = pos_scores[1:]
 
@@ -174,7 +110,7 @@ def evaluate(models, sample, device, gen_timer, scorer, bpe_toks, output_word_pr
         if hypo['expert_probs'] is not None:
             expert_ps = hypo['expert_probs'].mean(1).unsqueeze(0).cpu().numpy()
             expert_probs.append(expert_ps)
-        
+
         if output_word_probs or output_word_stats:
             w = ""
             word_prob = []
@@ -243,7 +179,8 @@ def dynamic_eval_lm(
     eval_only=False,
     max_documents = None,
     max_train_documents=None,
-    precomputed_prior = None
+    precomputed_prior = None,
+    ensemble_type: str = None
 ):
     """
     Args:
@@ -304,7 +241,7 @@ def dynamic_eval_lm(
     steps = 0
     target_score_sum = 0
     target_count = 0
-    
+
     target_ppls = []
     expert_probs_all = []
     priors_all = []
@@ -322,34 +259,29 @@ def dynamic_eval_lm(
         prior = precomputed_prior
     else:
         prior = None
-    
-    # # UNCOMMENT FOR UPDATING PRIOR
-    #precomputed_prior = False
-    #prior = None
+
+    if ensemble_type == 'updating_prior':
+        precomputed_prior = False
+        prior = None
+
     for ix, sample in enumerate(dev_batch_iterator):
         if max_documents and ix > max_documents:
             break
         if not sample or "net_input" not in sample:
             continue
-        target_score_sum_, target_count_, _, expert_probs = evaluate(models, sample, device, gen_timer, scorer, bpe_toks, output_word_probs, output_word_stats, remove_bos_token=remove_bos_token, prior=prior)
+        target_score_sum_, target_count_, _, expert_probs = evaluate(models, sample, device, gen_timer, scorer, bpe_toks, output_word_probs, output_word_stats, remove_bos_token=remove_bos_token, ensemble_type=ensemble_type, prior=prior)
         target_score_sum += target_score_sum_
         target_count += target_count_
         target_ppl = 2 ** (-target_score_sum / target_count / math.log(2) if target_count > 0 else 0)
-        # if cfg.common.no_progress_bar:
-        # if torch.distributed.get_rank() == 5:
-        # logger.info(f"target_ppl: {target_ppl}")
-        # else:
         target_ppls.append(target_ppl.item())
         if expert_probs is not None:
             expert_probs_all.append(expert_probs)
             if not precomputed_prior:
                 prior = pd.DataFrame(np.concatenate(expert_probs_all,0)).ewm(alpha=0.3, adjust=False).mean().tail(n=1).to_numpy().squeeze(0)
             priors_all.append(prior)
-        # prior = np.concatenate(expert_probs_all, 0).mean(0)
-       # logger.info(f"target_ppl: {target_ppl}, domain_probs: {prior}")
     return target_ppls, expert_probs_all, priors_all
 
-    
+
 
 
 class WordStat(object):
@@ -407,13 +339,6 @@ def main(cfg: DictConfig, **unused_kwargs):
     else:
         moe_freq = 0
 
-    #if torch.distributed.get_world_size() > len(cfg.common_eval.path.split(':')) and torch.distributed.get_rank() >= len(cfg.common_eval.path.split(':')):
-    #    from itertools import cycle, islice
-    #    cycled = cycle(cfg.common_eval.path.split(':'))
-    #    sliced = islice(cycled, None, torch.distributed.get_world_size())
-    #    result = list(sliced)
-    #    model_ = [result[torch.distributed.get_rank()]] if torch.distributed.is_initialized() else cfg.common_eval.path.split(':') 
-    #else:
     model_ = [cfg.common_eval.path.split(':')[torch.distributed.get_rank()]] if torch.distributed.is_initialized() else cfg.common_eval.path.split(':')
     models, model_args, task = checkpoint_utils.load_model_ensemble_and_task(
         model_,
@@ -427,7 +352,7 @@ def main(cfg: DictConfig, **unused_kwargs):
         partial_load=cfg.common_eval.partial_load
     )
 
-    
+
     use_fp16 = cfg.common.fp16
     use_cuda = torch.cuda.is_available() and not cfg.common.cpu
     if use_cuda:
@@ -440,7 +365,6 @@ def main(cfg: DictConfig, **unused_kwargs):
             model.half()
         if use_cuda and not cfg.distributed_training.pipeline_model_parallel:
             model.cuda()
-        # model.prepare_for_inference_(cfg)
 
     assert len(models) > 0
 
@@ -452,39 +376,16 @@ def main(cfg: DictConfig, **unused_kwargs):
     for subset in cfg.dataset.gen_subset.split(','):
         task.load_dataset(subset)
 
-    # train_dataset = task.dataset(cfg.dataset.target_domain)
-    
+
     eval_dataset = task.dataset(cfg.dataset.target_eval)
 
-    # undomain_dataset = task.dataset(cfg.dataset.undomain_eval)
 
-    # undomain_replay_dataset = task.dataset(cfg.dataset.undomain_replay)
-    
-
-    # logger.info(
-    #     "{} {} {:,} examples".format(
-    #         cfg.task.data, cfg.dataset.target_domain, len(train_dataset)
-    #     )
-    # )
 
     logger.info(
         "{} {} {:,} examples".format(
             cfg.task.data, cfg.dataset.target_eval, len(eval_dataset)
         )
     )
-
-
-    # logger.info(
-    #     "{} {} {:,} examples".format(
-    #         cfg.task.data, cfg.dataset.undomain_eval, len(undomain_dataset)
-    #     )
-    # )
-
-    # logger.info(
-    #     "{} {} {:,} examples".format(
-    #         cfg.task.data, cfg.dataset.undomain_replay, len(undomain_replay_dataset)
-    #     )
-    # )
 
 
     num_shards = max(
@@ -502,9 +403,7 @@ def main(cfg: DictConfig, **unused_kwargs):
     num_shards = 1
     shard_id = 0
 
-    # if cfg.common_eval.use_experts is not None:
-    #     for layer in model.decoder.layers:
-    #         layer.use_experts = cfg.common_eval.use_experts
+
     dev_itr = task.eval_lm_dataloader(
         dataset=eval_dataset,
         max_tokens=cfg.dataset.max_tokens or 36000,
@@ -520,7 +419,7 @@ def main(cfg: DictConfig, **unused_kwargs):
         context_window=cfg.eval_lm.context_window,
     )
 
-    
+
 
     dev_itr = progress_bar.progress_bar(
         dev_itr,
@@ -530,35 +429,11 @@ def main(cfg: DictConfig, **unused_kwargs):
         default_log_format="tqdm",
     )
 
-    # train_itr = task.eval_lm_dataloader(
-    #     dataset=train_dataset,
-    #     max_tokens=cfg.dataset.max_tokens or 36000,
-    #     batch_size=16,
-    #     max_positions=utils.resolve_max_positions(
-    #         *[model.max_positions() for model in models]
-    #     ),
-    #     num_shards=num_shards,
-    #     shard_id=shard_id,
-    #     num_workers=cfg.dataset.num_workers,
-    #     data_buffer_size=cfg.dataset.data_buffer_size,
-    #     context_window=cfg.eval_lm.context_window,
-    # )
-
-    
-
-    # train_itr = progress_bar.progress_bar(
-    #     train_itr,
-    #     log_format=cfg.common.log_format,
-    #     log_interval=cfg.common.log_interval,
-    #     level=0,
-    #     default_log_format="simple",
-    # )
-
 
     criterion = task.build_criterion(cfg.criterion)
-    
-    
-    
+
+
+
 
     # (optionally) Configure quantization
     if cfg.common.quantization_config_path is not None:
@@ -570,79 +445,8 @@ def main(cfg: DictConfig, **unused_kwargs):
     else:
         quantizer = None
 
-    
-    # for model in models:
-    #     model.decoder.add_adapter()
 
-    # models[0].decoder.add_decoders(models[1:])
-
-    
-
-    # Build trainer
-    # trainer = Trainer(cfg, task, models[0], criterion, quantizer)
-
-    
-    # for x, p in trainer.model.named_parameters():
-    #     if 'adapter' in x:
-    #         p.requires_grad = True
-    #     else:
-    #         p.requires_grad = False
-
-    # models[0].decoder.add_decoders(models[1:])
-
-    # decoders = torch.nn.ModuleList(models)
-    # # for decoder in models:
-    # #     decoders.append(decoder)
-    # gate = Top1Gate(512, len(decoders))
-    # gate.wg = gate.wg.to(decoders[0].decoder.layers[0].self_attn.k_proj.weight.device)
-    # model = MoETransformer(gate, decoders, cfg.model)
-    # # Build trainer
-    # trainer = Trainer(cfg, task, model, criterion, quantizer)
-    
-    # if getattr(cfg.model, "desynchronize", False):
-    #     for x, p in trainer.model.named_parameters():
-    #         p.expert = True
-    
     logger.info("added adapter")
-
-    # for x, p in trainer.model.named_parameters():
-        # if 'adapter' not in x:
-        #      if 'bias' in x:
-        #          p.requires_grad=True
-        #      else:
-        #          p.requires_grad=False
-        # #     # if 'layers.1' in x or 'layers.3' in x or 'layers.5' in x:
-        # #     #     p.expert = True
-        # else:
-        #     p.requires_grad = True
-        #     p.expert = True
-        
-    # trainer.model.decoder.add_adapter(1)
-    # for layer in trainer.model.decoder.layers:
-    #     layer.add_adapter(1)
-    # for x, p in trainer.model.named_parameters():
-    #     if 'adapter' in x:
-    #         p.requires_grad = True
-    #     else:
-    #         p.requires_grad = False
-    #         p.requires_grad = True
-        # p.expert = True
-            
-    # logger.info(
-    #     "num. shared model params: {} (num. trained: {})".format(
-    #         sum(p.numel() for p in trainer.model.parameters() if not getattr(p, "expert", False)),
-    #         sum(p.numel() for p in trainer.model.parameters() if not getattr(p, "expert", False) and p.requires_grad),
-    #     )
-    # )
-    
-    # logger.info(
-    #     "num. expert model params: {} (num. trained: {})".format(
-    #         sum(p.numel() for p in trainer.model.parameters() if getattr(p, "expert", False)),
-    #         sum(p.numel() for p in trainer.model.parameters() if getattr(p, "expert", False) and p.requires_grad),
-    #     )
-    # )
-    
-    
 
     logger.info(
         "training on {} devices (GPUs/TPUs)".format(
@@ -656,19 +460,11 @@ def main(cfg: DictConfig, **unused_kwargs):
         )
     )
 
-    # Load the latest checkpoint if one is available and restore the
-    # corresponding train iterator
-    # extra_state, epoch_itr = checkpoint_utils.load_checkpoint(
-    #     cfg.checkpoint,
-    #     trainer,
-    #     # don't cache epoch iterators for sharded datasets
-    #     disable_iterator_cache=task.has_sharded_data("train"),
-    # )
     if cfg.common_eval.precomputed_prior is not None:
         precomputed_prior = [float(x) for x in cfg.common_eval.precomputed_prior.split(',')]
     else:
         precomputed_prior = None
-    
+
     results, expert_probs,priors = dynamic_eval_lm(
         # trainer=trainer,
         models=models,
@@ -690,11 +486,11 @@ def main(cfg: DictConfig, **unused_kwargs):
         eval_only=True,
         max_documents=cfg.common_eval.max_samples,
         max_train_documents=0,
-        precomputed_prior=precomputed_prior
-    )        
+        precomputed_prior=precomputed_prior,
+        ensemble_type=cfg.common_eval.ensemble_type
+    )
     if results and expert_probs:
         expert_probs = [x.tolist()[0] for x in expert_probs]
-        # priors = [x.tolist() for x in priors]
         res = []
         for x,y,z in zip(results, expert_probs, priors):
             res.append({"ppl": x, "expert_probs": y, "prior": z})

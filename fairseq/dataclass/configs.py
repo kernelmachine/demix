@@ -902,6 +902,10 @@ class CommonEvalConfig(FairseqDataclass):
         default=None, metadata={"help": "path to save eval results (optional)"}
     )
 
+    ensemble_type: Optional[str] = field(
+        default=None, metadata={"help": "ensembling type (one of 'simple_average', 'cached_prior', 'uniform_prior', 'updating_prior')"}
+    )
+
     precomputed_prior: Optional[str] = field(
         default=None, metadata={"help": "priors for each domain"}
     )

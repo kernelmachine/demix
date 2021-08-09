@@ -1,10 +1,12 @@
 data_bin=$1
 model=$2
 target_domain=$3
-undomain=$4
-results_path=$5
-estimate=$6
-precomputed_prior=$7
+results_path=$4
+estimate=$5
+precomputed_prior=$6
+
+# Ensemble type, one of "simple_average","cached_prior", "updating_prior", "uniform_prior"
+ensemble_type=$7
 
 if [[ $estimate == *"estimate"* ]]; then
 	echo "estimating probabilities..."
@@ -40,7 +42,6 @@ if [[ $estimate == *"estimate"* ]]; then
     --partial-load \
     --results-path ${results_path} \
     --max-samples 100;
-
 else
 	target_eval_split=test_${target_domain};
     python fairseq_cli/ensemble_eval_lm.py $data_bin \
@@ -73,5 +74,6 @@ else
     --train-subset train_${target_domain} \
     --partial-load \
     --results-path ${results_path} \
+    --ensemble-type ${ensemble_type} \
     --precomputed-prior ${precomputed_prior}
 fi;

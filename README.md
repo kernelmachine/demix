@@ -18,13 +18,14 @@ Additionally, please make sure you have the dependencies above installed (check 
 
 The multidomain dataset scripts are housed in another repository, located [here](https://github.com/kernelmachine/demix-data). Clone that repository and follow instructions to setup data to train on.
 
-Follow that tutorial to generate the data-bins on eight mini domains.
+Follow that tutorial to generate data-bins on eight (small) example domains.
+
 ## Basic Training
 
 After setting up those domains, run the following to train a small language model:
 
 ```bash
-bash scripts/run_all.sh 8 12344 transformer_lm demix /private/home/suching/demix-data/example_domains/data-bin/ /path/to/serialization/dir/ test debug
+bash scripts/run_all.sh 8 12344 transformer_lm demix /private/home/suching/demix-data/example_domains/data-bin/ ${SERIALIZATION_DIR}/ test debug
 ```
 
 
@@ -61,7 +62,7 @@ To evaluate the language model _without_ mixing experts:
 
 ```bash
 export DATA_PATH=/path/to/multidomain/data/
-export PATH_TO_CHECKPOINT=/path/to/serialization/dir/checkpoint_last.pt
+export PATH_TO_CHECKPOINT=${SERIALIZATION_DIR}/checkpoint_last.pt
 export OUTPUT_PATH=eval_output.jsonl
 export SPLIT=valid
 export DOMAIN=XXX
@@ -82,7 +83,7 @@ bash scripts/eval_lm_single.sh $DATA_PATH $PATH_TO_CHECKPOINT $OUTPUT_PATH $SPLI
 For the demix model, you can supply the checkpoint from a GPU on a particular rank (to specify the use of a specific domain expert)
 
 ```bash
-export PATH_TO_CHECKPOINT=/path/to/serialization/dir/checkpoint_last-rank-X.pt
+export PATH_TO_CHECKPOINT=${SERIALIZATION_DIR}/checkpoint_last-rank-X.pt
 bash scripts/eval_lm_single.sh $DATA_PATH $PATH_TO_CHECKPOINT $OUTPUT_PATH $SPLIT $DOMAIN $DOMAIN_TOKEN
 ```
 
@@ -90,11 +91,15 @@ bash scripts/eval_lm_single.sh $DATA_PATH $PATH_TO_CHECKPOINT $OUTPUT_PATH $SPLI
 
 First, we estimate the posterior distribution on 100 sequences of validation data of the domain using the following command:
 
+
+
 ```bash
-export DATA_PATH=/path/to/multidomain/data/
-export MODEL_NAME=demix_32_GPUs_transformer_lm_gpt3_small_test
-export DOMAIN=XXX
-bash scripts/mix_experts.sh $DATA_PATH $MODEL_NAME $DOMAIN $DOMAIN $POSTERIOR_OUTPUT estimate
+export DATA_BIN=${DATA_DIR}/data-bin
+export DOMAIN=imdb
+export SERIALIZATION_DIR=
+bash scripts/ensemble_eval_lm.sh $DATA_BIN  ${SERIALIZATION_DIR}/checkpoint_last-rank-0.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-1.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-2.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-3.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-4.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-5.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-6.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-7.pt $DOMAIN $DOMAIN test.jsonl estimate;
+
+# bash scripts/mix_experts.sh $DATA_PATH $MODEL_NAME $DOMAIN $DOMAIN $POSTERIOR_OUTPUT estimate
 ```
 
 Then, we open `$POSTERIOR_OUTPUT`, copying the `posterior` value of the last line in that file.
@@ -115,7 +120,7 @@ We additionally provide scripts to adapt the language model to a new domain.
 ```bash
 export NEW_DATA_PATH=/path/to/new/domains
 export NEW_DOMAIN=XXX
-export PATH_TO_CHECKPOINT=/path/to/serialization/dir/checkpoint_last-rank-XXX.pt
+export PATH_TO_CHECKPOINT=${SERIALIZATION_DIR}/checkpoint_last-rank-XXX.pt
 export FEEDFORWARD_OR_FULL=feedforward
 export SERIALIZATION_DIR=/path/to/new/serialization/dir
 export EXPERIMENT_SUFFIX=test

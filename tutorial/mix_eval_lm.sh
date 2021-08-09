@@ -1,10 +1,9 @@
 data_bin=$1
 model=$2
 target_domain=$3
-undomain=$4
-results_path=$5
-estimate=$6
-precomputed_prior=$7
+results_path=$4
+estimate=$5
+precomputed_prior=$6
 
 if [[ $estimate == *"estimate"* ]]; then
 	echo "estimating probabilities..."
@@ -16,7 +15,7 @@ if [[ $estimate == *"estimate"* ]]; then
     --target-eval ${target_eval_split} \
     --task multidomain_language_modeling \
     --sample-break-mode none \
-    --tokens-per-sample 1024      \
+    --tokens-per-sample 128      \
     --batch-size 2  \
     --original-domains 1b,cs,legal,med,anonymized_openwebtext,anonymized_realnews,reddit,anonymized_reviews \
     --optimizer adafactor \
@@ -40,7 +39,6 @@ if [[ $estimate == *"estimate"* ]]; then
     --partial-load \
     --results-path ${results_path} \
     --max-samples 100;
-
 else
 	target_eval_split=test_${target_domain};
     python fairseq_cli/ensemble_eval_lm.py $data_bin \
@@ -50,7 +48,7 @@ else
     --target-eval ${target_eval_split} \
     --task multidomain_language_modeling \
     --sample-break-mode none \
-    --tokens-per-sample 1024      \
+    --tokens-per-sample 128      \
     --batch-size 2  \
     --original-domains 1b,cs,legal,med,anonymized_openwebtext,anonymized_realnews,reddit,anonymized_reviews \
     --optimizer adafactor \

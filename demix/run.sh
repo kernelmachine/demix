@@ -1,3 +1,5 @@
+# See tutorial/run.sh for a description of each variable.
+
 NUM_GPUS=$1
 NUM_NODES=$((${NUM_GPUS}/8))
 PORT=$2
@@ -6,18 +8,11 @@ EXPERIMENT=$4
 DATA_PATH=$5
 SERIALIZATION_DIR=$6
 FILE_SUFFIX=$7
-DEBUG=$8
 
-# TODO: alphabetize this!
-if [[ $DEBUG == "debug" ]]; then
-     domains=ag_news,amazon,chemprot,citation_intent,hp-news,imdb,rct,1b_test;
-     valid_subset=valid_ag_news,valid_amazon,valid_chemprot,valid_citation_intent,valid_hp-news,valid_imdb,valid_rct,valid_1b_test;
-     WANDB_PROJECT=debug;
-else
-     domains=1b,cs,legal,med,anonymized_openwebtext,anonymized_realnews,reddit,anonymized_reviews;
-     valid_subset=valid_1b,valid_cs,valid_legal,valid_med,valid_anonymized_openwebtext,valid_anonymized_realnews,valid_reddit,valid_anonymized_reviews;
-     WANDB_PROJECT=gpt3_experiments;
-fi;
+
+domains=1b,cs,legal,med,anonymized_openwebtext,anonymized_realnews,reddit,anonymized_reviews;
+valid_subset=valid_1b,valid_cs,valid_legal,valid_med,valid_anonymized_openwebtext,valid_anonymized_realnews,valid_reddit,valid_anonymized_reviews;
+WANDB_PROJECT=gpt3_experiments;
 
 
 TOKENS_PER_SAMPLE=1024;
@@ -58,13 +53,13 @@ elif [[ $ARCH == *"gpt3_xl"* ]]; then
      CLIP_NORM=0.1;
      UPDATE_FREQ=8;
 elif [[ $ARCH == *"transformer_lm"* ]]; then
-     TOKENS_PER_SAMPLE=128;
+     TOKENS_PER_SAMPLE=1024;
      LR=5e-4;
      CLIP_NORM=0.1;
      UPDATE_FREQ=8;
-     NUM_STEPS=5000;
-     SAVE_INTERVAL_UPDATES=5000;
-     VALIDATION_INTERVAL=500;
+     NUM_STEPS=600000;
+     SAVE_INTERVAL_UPDATES=12000;
+     VALIDATION_INTERVAL=6000;
      NUM_WARMUP_STEPS=$((${NUM_STEPS} * 8 / 100));
 fi;
 
