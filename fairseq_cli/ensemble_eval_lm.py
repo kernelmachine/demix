@@ -54,7 +54,7 @@ def evaluate(models, sample, device, gen_timer, scorer, bpe_toks, output_word_pr
     if isinstance(prior, list):
         prior = torch.tensor(prior).float()
     if ensemble_type == "cached_prior":
-        if not prior:
+        if prior is None:
             raise ValueError("if using cached_prior, please supply a prior.")
             sys.exit(1)
         ensemble_weighted_average = True
