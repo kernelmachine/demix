@@ -40,8 +40,8 @@ def progress_bar(
 ):
     if log_format is None:
         log_format = default_log_format
-    if log_format == "tqdm" and not sys.stderr.isatty():
-        log_format = "simple"
+    # if log_format == "tqdm" and not sys.stderr.isatty():
+        # log_format = "simple"
 
     if log_format == "json":
         bar = JsonProgressBar(iterator, epoch, prefix, log_interval)
