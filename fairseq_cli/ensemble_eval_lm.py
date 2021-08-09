@@ -423,6 +423,8 @@ def main(cfg: DictConfig, **unused_kwargs):
 
 
     if torch.distributed.get_rank() == 0:
+        import sys
+        sys.stderr = open('/tmp/err.txt', 'w+')
         dev_itr = progress_bar.progress_bar(
             dev_itr,
             log_format=cfg.common.log_format,
