@@ -18,7 +18,6 @@ PORT=12345
 
 
 domains=${DOMAIN};
-train_subset=train_${DOMAIN};
 valid_subset=valid_${DOMAIN};
 # wandb project name (to track experiment on wandb.ai)
 WANDB_PROJECT=debug
@@ -78,7 +77,6 @@ if [[ $MODEL_PATH == *"demix"* ]]; then
                         --warmup-updates $NUM_WARMUP_STEPS     \
                         --wandb-project $WANDB_PROJECT \
                         --save-dir ${SERIALIZATION_DIR}        \
-                        --train-subset $train_subset \
                         --valid-subset $valid_subset \
                         --train-domains $domains  \
                         --eval-domains $domains \
@@ -125,7 +123,6 @@ if [[ $MODEL_PATH == *"demix"* ]]; then
                         --warmup-updates $NUM_WARMUP_STEPS     \
                         --wandb-project $WANDB_PROJECT \
                         --save-dir ${SERIALIZATION_DIR}        \
-                        --train-subset $train_subset \
                         --valid-subset $valid_subset \
                         --train-domains $domains  \
                         --eval-domains $domains \
@@ -173,7 +170,6 @@ elif [[ $MODEL_PATH == *"dense"* ]]; then
                         --warmup-updates $NUM_WARMUP_STEPS     \
                         --wandb-project $WANDB_PROJECT \
                         --save-dir ${SERIALIZATION_DIR}        \
-                        --train-subset $train_subset \
                         --valid-subset $valid_subset \
                         --train-domains $domains  \
                         --eval-domains $domains \
@@ -216,7 +212,6 @@ elif [[ $MODEL_PATH == *"dense"* ]]; then
                         --warmup-updates $NUM_WARMUP_STEPS     \
                         --wandb-project $WANDB_PROJECT \
                         --save-dir ${SERIALIZATION_DIR}        \
-                        --train-subset $train_subset \
                         --valid-subset $valid_subset \
                         --train-domains $domains  \
                         --eval-domains $domains \
