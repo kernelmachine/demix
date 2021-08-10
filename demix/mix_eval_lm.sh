@@ -20,7 +20,6 @@ if [[ $estimate == *"estimate"* ]]; then
     --sample-break-mode none \
     --tokens-per-sample 1024      \
     --batch-size 2  \
-    --original-domains 1b,cs,legal,med,anonymized_openwebtext,anonymized_realnews,reddit,anonymized_reviews \
     --optimizer adafactor \
     --sample-break-mode none     \
     --log-format simple     \
@@ -56,7 +55,6 @@ else
     --sample-break-mode none \
     --tokens-per-sample 1024      \
     --batch-size 2  \
-    --original-domains 1b,cs,legal,med,anonymized_openwebtext,anonymized_realnews,reddit,anonymized_reviews \
     --optimizer adafactor \
     --sample-break-mode none     \
     --log-format simple     \

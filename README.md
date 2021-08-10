@@ -20,6 +20,8 @@ The multidomain dataset scripts are housed in another repository, located [here]
 
 Follow that tutorial to generate data-bins on eight (small) example domains.
 
+Make sure to set the `DATA_DIR` accordingly.
+
 ## Basic Training
 
 After setting up those domains, run the following to train a small language model. Note that the scripts in this paper assume you are running on a multi-node GPU cluster with SLURM.
@@ -40,7 +42,7 @@ export NUM_GPUS=8
 export DISTRIBUTED_PORT=12345
 export MODEL=transformer_lm_gpt3_small
 export EXPERIMENT=demix
-export DATA_BIN=${DATA_PATH}/data-bin/
+export DATA_BIN=${DATA_DIR}/data-bin/
 export EXPERIMENT_SUFFIX=tutorial
 export SERIALIZATION_DIR=/path/to/serialization/dir
 bash tutorial/train.sh $NUM_GPUS $DISTRIBUTED_PORT $MODEL $EXPERIMENT $DATA_BIN $SERIALIZATION_DIR $EXPERIMENT_SUFFIX
@@ -59,11 +61,12 @@ We have two ways to evaluate the demix language model: with and without mixing e
 
 ### Evaluating without mixing experts
 
-To evaluate the language model _without_ mixing experts:
+To evaluate the language model _without_ mixing experts, you can supply the checkpoint from a GPU on a particular rank (to specify the use of a specific domain expert):
 
 ```bash
-export DATA_BIN=${DATA_PATH}/data-bin/
-export PATH_TO_CHECKPOINT=${SERIALIZATION_DIR}/checkpoint_last.pt
+export DATA_BIN=${DATA_DIR}/data-bin/
+export GPU_RANK=0
+export PATH_TO_CHECKPOINT=${SERIALIZATION_DIR}/checkpoint_last-rank-${GPU_RANK}.pt
 export OUTPUT_PATH=eval_output.jsonl
 export SPLIT=valid
 export DOMAIN=XXX
@@ -74,19 +77,15 @@ To evaluate on test data, set `export SPLIT=test`
 
 The same script is used for the other baselines.
 
+
 For the +domain token model, you can additionally supply a domain token to use at test time:
 
 ```bash
 export DOMAIN_TOKEN=XXX
-bash tutorial/eval_lm.sh $DATA_PATH $PATH_TO_CHECKPOINT $OUTPUT_PATH $SPLIT $DOMAIN $DOMAIN_TOKEN
+bash tutorial/eval_lm.sh $DATA_BIN $PATH_TO_CHECKPOINT $OUTPUT_PATH $SPLIT $DOMAIN $DOMAIN_TOKEN
 ```
 
-For the demix model, you can supply the checkpoint from a GPU on a particular rank (to specify the use of a specific domain expert)
 
-```bash
-export PATH_TO_CHECKPOINT=${SERIALIZATION_DIR}/checkpoint_last-rank-0.pt
-bash tutorial/eval_lm.sh $DATA_PATH $PATH_TO_CHECKPOINT $OUTPUT_PATH $SPLIT $DOMAIN $DOMAIN_TOKEN
-```
 
 ### Evaluating with mixing experts
 
@@ -95,21 +94,22 @@ First, we estimate the posterior distribution on 100 sequences of validation dat
 ```bash
 export DATA_BIN=${DATA_DIR}/data-bin
 export DOMAIN=imdb
-export POSTERIOR_OUTPUT=posteriors.jsonl
-bash tutorial/mix_eval_lm.sh $DATA_BIN  ${SERIALIZATION_DIR}/checkpoint_last-rank-0.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-1.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-2.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-3.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-4.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-5.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-6.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-7.pt $DOMAIN $POSTERIOR_OUTPUT estimate;
+export DEV_POSTERIOR_OUTPUT=dev_posteriors.jsonl
+export NUM_TRAINING_GPUS=8;
+bash tutorial/mix_eval_lm.sh $DATA_BIN  ${SERIALIZATION_DIR}/checkpoint_last-rank-0.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-1.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-2.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-3.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-4.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-5.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-6.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-7.pt $DOMAIN $DEV_POSTERIOR_OUTPUT estimate;
 ```
 
-Then, we open `$POSTERIOR_OUTPUT`, copying the `exp_avg_posterior` value of the last line in that file:
+Then, we open `$POSTERIOR_OUTPUT`, extracting the `exp_avg_posterior` value of the last line in that file:
 
 
 ```bash
-export POSTERIOR=$(tail -n 1 $POSTERIOR_OUTPUT | jq -rc '.exp_avg_posterior | join(",")')
+export POSTERIOR=$(tail -n 1 $DEV_POSTERIOR_OUTPUT | jq -rc '.exp_avg_posterior | join(",")')
 ```
 
 We use this posterior as the domain prior (supplied as a string) when evaluating on test data, like so:
 
 ```bash
-bash scripts/mix_experts.sh $DATA_PATH $MODEL_NAME $DOMAIN $DOMAIN $POSTERIOR_OUTPUT eval $POSTERIOR
+bash tutorial/mix_eval_lm.sh $DATA_BIN  ${SERIALIZATION_DIR}/checkpoint_last-rank-0.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-1.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-2.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-3.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-4.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-5.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-6.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-7.pt $DOMAIN $DEV_POSTERIOR_OUTPUT eval $POSTERIOR cached_prior;
 ```
 
 ## Adapting the Language Model

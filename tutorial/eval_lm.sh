@@ -13,9 +13,9 @@ if [[ "$model" == *"domain_token"* ]]; then
                         --gen-subset ${split}_${target_domain} \
                         --task multidomain_language_modeling \
                         --sample-break-mode none \
-                        --tokens-per-sample 1024     \
+                        --tokens-per-sample 128     \
                         --batch-size 2  \
-                        --original-domains 1b,anonymized_openwebtext,anonymized_realnews,anonymized_reviews,cs,legal,med,reddit \
+                        --original-domains ag_news,amazon,chemprot,citation_intent,hp-news,imdb,rct,1b_test \
                         --eval-domains ${target_domain} \
                         --results-path ${results_path} \
                         --partial-load \
@@ -27,7 +27,7 @@ if [[ "$model" == *"domain_token"* ]]; then
                         --gen-subset ${split}_${target_domain} \
                         --task multidomain_language_modeling \
                         --sample-break-mode none \
-                        --tokens-per-sample 1024     \
+                        --tokens-per-sample 128     \
                         --batch-size 2  \
                         --eval-domains ${target_domain} \
                         --results-path ${results_path} \
@@ -43,7 +43,7 @@ elif [[ "$model" == *"gshard"* || "$model" == *"switch"* ]]; then
         --gen-subset ${split}_${target_domain} \
         --task multidomain_language_modeling \
         --sample-break-mode none \
-        --tokens-per-sample 1024     \
+        --tokens-per-sample 128     \
         --batch-size 2  \
         --eval-domains ${target_domain} \
         --results-path ${results_path} \
@@ -57,7 +57,7 @@ else
         --gen-subset ${split}_${target_domain} \
         --task multidomain_language_modeling \
         --sample-break-mode none \
-        --tokens-per-sample 1024     \
+        --tokens-per-sample 128     \
         --batch-size 2  \
         --eval-domains ${target_domain} \
         --results-path ${results_path} \
