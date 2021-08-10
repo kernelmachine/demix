@@ -95,8 +95,9 @@ First, we estimate the posterior distribution on 100 sequences of validation dat
 export DATA_BIN=${DATA_DIR}/data-bin
 export DOMAIN=imdb
 export DEV_POSTERIOR_OUTPUT=dev_posteriors.jsonl
-export NUM_TRAINING_GPUS=8;
-bash tutorial/mix_eval_lm.sh $DATA_BIN  ${SERIALIZATION_DIR}/checkpoint_last-rank-0.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-1.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-2.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-3.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-4.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-5.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-6.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-7.pt $DOMAIN $DEV_POSTERIOR_OUTPUT estimate;
+# set NUM_EVALUATION_GPUS equal to the number of experts you'd like to ensemble.
+export NUM_EVALUATION_GPUS=8;
+bash tutorial/mix_eval_lm.sh $NUM_EVALUATION_GPUS $DATA_BIN  ${SERIALIZATION_DIR}/checkpoint_last-rank-0.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-1.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-2.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-3.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-4.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-5.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-6.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-7.pt $DOMAIN $DEV_POSTERIOR_OUTPUT estimate;
 ```
 
 Then, we open `$POSTERIOR_OUTPUT`, extracting the `exp_avg_posterior` value of the last line in that file:
@@ -109,19 +110,69 @@ export POSTERIOR=$(tail -n 1 $DEV_POSTERIOR_OUTPUT | jq -rc '.exp_avg_posterior 
 We use this posterior as the domain prior (supplied as a string) when evaluating on test data, like so:
 
 ```bash
-bash tutorial/mix_eval_lm.sh $DATA_BIN  ${SERIALIZATION_DIR}/checkpoint_last-rank-0.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-1.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-2.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-3.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-4.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-5.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-6.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-7.pt $DOMAIN $DEV_POSTERIOR_OUTPUT eval $POSTERIOR cached_prior;
+bash tutorial/mix_eval_lm.sh $NUM_EVALUATION_GPUS $DATA_BIN  ${SERIALIZATION_DIR}/checkpoint_last-rank-0.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-1.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-2.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-3.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-4.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-5.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-6.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-7.pt $DOMAIN $DEV_POSTERIOR_OUTPUT eval $POSTERIOR cached_prior;
 ```
 
 ## Adapting the Language Model
 
 We additionally provide scripts to adapt the language model to a new domain.
 
+
+### DEMix DAPT
+In this tutorial, we just adapt one of the existing experts to a new example domain in the `demix-data` project, located in `/path/to/demix-data/new_example_domains`.
+
+First, we need to figure out which domain expert has the most affinity to the target domain we want to adapt to:
+
 ```bash
-export NEW_DATA_PATH=/path/to/new/domains
-export NEW_DOMAIN=XXX
-export PATH_TO_CHECKPOINT=${SERIALIZATION_DIR}/checkpoint_last-rank-XXX.pt
-export FEEDFORWARD_OR_FULL=feedforward
-export SERIALIZATION_DIR=/path/to/new/serialization/dir
+export NEW_DATA_BIN=/private/home/suching/demix-data/new_example_domains/data-bin/
+export NEW_DOMAIN=acl_papers
+export DEV_POSTERIOR_OUTPUT=${NEW_DOMAIN}_posterior.jsonl
+# set NUM_EVALUATION_GPUS equal to the number of experts you'd like to ensemble.
+export NUM_EVALUATION_GPUS=8;
+bash tutorial/mix_eval_lm.sh $NUM_EVALUATION_GPUS $NEW_DATA_BIN  ${SERIALIZATION_DIR}/checkpoint_last-rank-0.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-1.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-2.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-3.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-4.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-5.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-6.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-7.pt $NEW_DOMAIN $DEV_POSTERIOR_OUTPUT estimate;
+export POSTERIOR=$(tail -n 1 $DEV_POSTERIOR_OUTPUT | jq -rc '.exp_avg_posterior | join(",")')
+```
+
+Here, we find that the most likely expert is expert number 5.
+
+```bash
+export POSTERIOR=$(tail -n 1 $DEV_POSTERIOR_OUTPUT | jq -rc '.exp_avg_posterior | join(",")')
+echo $POSTERIOR
+```
+
+We then adapt expert 5 to the target domain using the `tutorial/dapt.sh` script, using DEMix DAPT:
+
+```bash
+export PATH_TO_CHECKPOINT=${SERIALIZATION_DIR}/checkpoint_last-rank-5.pt
+export UNFREEZE_PARAMETERS=feedforward
+export NEW_SERIALIZATION_DIR=$(pwd)/${NEW_DOMAIN}_demix_dapt
 export EXPERIMENT_SUFFIX=test
-bash scripts/dapt_small.sh $NEW_DATA_PATH NEW_DOMAIN $PATH_TO_CHECKPOINT $FEEDFORWARD_OR_FULL $SERIALIZATION_DIR $EXPERIMENT_SUFFIX
+bash tutorial/dapt.sh $NEW_DATA_BIN $NEW_DOMAIN $PATH_TO_CHECKPOINT $UNFREEZE_PARAMETERS $NEW_SERIALIZATION_DIR $EXPERIMENT_SUFFIX
+```
+
+Once this is trained, you can add that expert to your ensemble when evaluating on new data:
+
+
+```bash
+export NEW_DATA_BIN=/path/to/demix-data/new_example_domains/data-bin/
+export NEW_DOMAIN=acl_papers
+export DEV_POSTERIOR_OUTPUT=${NEW_DOMAIN}_posterior.jsonl
+# set NUM_EVALUATION_GPUS equal to the number of experts you'd like to ensemble.
+export NUM_EVALUATION_GPUS=8;
+export PATH_TO_NEW_EXPERT=${NEW_SERIALIZATION_DIR}/checkpoint_last.pt
+bash tutorial/mix_eval_lm.sh $NUM_EVALUATION_GPUS $DATA_BIN  ${SERIALIZATION_DIR}/checkpoint_last-rank-0.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-1.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-2.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-3.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-4.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-5.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-6.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-7.pt:${PATH_TO_NEW_EXPERT} $DOMAIN $DEV_POSTERIOR_OUTPUT estimate;
+export POSTERIOR=$(tail -n 1 $DEV_POSTERIOR_OUTPUT | jq -rc '.exp_avg_posterior | join(",")')
+```
+
+
+### Dense DAPT
+
+If you wanted to do Dense DAPT instead, just change the environment variables:
+
+```bash
+export PATH_TO_CHECKPOINT=/path/to/dense/model/checkpoint_last.pt
+export FEEDFORWARD_OR_FULL=full
+export SERIALIZATION_DIR=$(pwd)/${NEW_DOMAIN}_dense_dapt
+export EXPERIMENT_SUFFIX=test
+bash tutorial/dapt.sh $NEW_DATA_BIN $NEW_DOMAIN $PATH_TO_CHECKPOINT $FEEDFORWARD_OR_FULL $SERIALIZATION_DIR $EXPERIMENT_SUFFIX
 ```

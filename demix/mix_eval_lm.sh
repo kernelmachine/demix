@@ -1,12 +1,13 @@
-data_bin=$1
-model=$2
-target_domain=$3
-results_path=$4
-estimate=$5
-precomputed_prior=$6
+num_gpus=$1
+data_bin=$2
+model=$3
+target_domain=$4
+results_path=$5
+estimate=$6
+precomputed_prior=$7
 
 # Ensemble type, one of "simple_average","cached_prior", "updating_prior", "uniform_prior"
-ensemble_type=$7
+ensemble_type=$8
 
 if [[ $estimate == *"estimate"* ]]; then
 	echo "estimating probabilities..."
@@ -41,7 +42,7 @@ if [[ $estimate == *"estimate"* ]]; then
     --partial-load \
     --ensemble-type "updating_prior" \
     --results-path ${results_path} \
-    --distributed-world-size 8 \
+    --distributed-world-size $num_gpus \
     --distributed-port 12345 \
     --max-samples 100;
 else
@@ -76,7 +77,7 @@ else
     --partial-load \
     --results-path ${results_path} \
     --ensemble-type ${ensemble_type} \
-    --distributed-world-size 8 \
+    --distributed-world-size $num_gpus \
     --distributed-port 12345 \
     --precomputed-prior ${precomputed_prior}
 fi;
