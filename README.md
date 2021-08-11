@@ -85,8 +85,6 @@ export DOMAIN_TOKEN=XXX
 bash tutorial/eval_lm.sh $DATA_BIN $PATH_TO_CHECKPOINT $OUTPUT_PATH $SPLIT $DOMAIN $DOMAIN_TOKEN
 ```
 
-
-
 ### Evaluating with mixing experts
 
 First, we estimate the posterior distribution on 100 sequences of validation data of the domain using the following command:
