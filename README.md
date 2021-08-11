@@ -160,7 +160,7 @@ export DEV_POSTERIOR_OUTPUT=${NEW_DOMAIN}_posterior.jsonl
 # set NUM_EVALUATION_GPUS equal to the number of experts you'd like to ensemble.
 export NUM_EVALUATION_GPUS=8;
 export PATH_TO_NEW_EXPERT=${NEW_SERIALIZATION_DIR}/checkpoint_last-rank-0.pt
-bash tutorial/mix_eval_lm.sh $NUM_EVALUATION_GPUS $DATA_BIN  ${SERIALIZATION_DIR}/checkpoint_last-rank-0.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-1.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-2.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-3.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-4.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-5.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-6.pt:${PATH_TO_NEW_EXPERT} $DOMAIN $DEV_POSTERIOR_OUTPUT estimate;
+bash tutorial/mix_eval_lm.sh $NUM_EVALUATION_GPUS $NEW_DATA_BIN  ${SERIALIZATION_DIR}/checkpoint_last-rank-0.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-1.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-2.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-3.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-4.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-5.pt:${SERIALIZATION_DIR}/checkpoint_last-rank-6.pt:${PATH_TO_NEW_EXPERT} $NEW_DOMAIN $DEV_POSTERIOR_OUTPUT estimate;
 export POSTERIOR=$(tail -n 1 $DEV_POSTERIOR_OUTPUT | jq -rc '.exp_avg_posterior | join(",")')
 ```
 

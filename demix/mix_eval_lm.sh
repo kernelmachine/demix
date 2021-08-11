@@ -1,18 +1,24 @@
+# Number of GPUs you'd like to evaluate on. Set this equal to number of experts you'd like to mix.
 num_gpus=$1
-data_bin=$2
+# Path to data-bins
+data_path=$2
+# model ensemble, separated by `:` e.g. model_path/checkpoint_last-rank-0.pt:model_path/checkpoint_last-rank-4.pt
 model=$3
+# target domain to evaluate on
 target_domain=$4
+# path to posterior calculation output
 results_path=$5
+# set to "estimate" if you'd like to estimate a prior on validation set (for ensemble_type "cached_prior")
 estimate=$6
+# comma separated string of per-expert prior, e.g. "0.1,0.2,0.3,0.4". Must be in order experts appear in $model.
 precomputed_prior=$7
-
 # Ensemble type, one of "simple_average","cached_prior", "updating_prior", "uniform_prior"
 ensemble_type=$8
 
 if [[ $estimate == *"estimate"* ]]; then
 	echo "estimating probabilities..."
 	target_eval_split=valid_${target_domain};
-   srun --label python fairseq_cli/ensemble_eval_lm.py $data_bin \
+   srun --label python fairseq_cli/ensemble_eval_lm.py $data_path \
     --path $model \
     --gen-subset $target_eval_split \
     --target-domain train_${target_domain}\
@@ -47,7 +53,7 @@ if [[ $estimate == *"estimate"* ]]; then
     --max-samples 100;
 else
 	target_eval_split=test_${target_domain};
-    srun --label python fairseq_cli/ensemble_eval_lm.py $data_bin \
+    srun --label python fairseq_cli/ensemble_eval_lm.py $data_path \
     --path $model \
     --gen-subset $target_eval_split \
     --target-domain train_${target_domain}\

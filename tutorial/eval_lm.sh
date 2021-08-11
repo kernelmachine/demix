@@ -1,9 +1,16 @@
+# Path to data-bins
 data_bin=$1
+# path to model, e.g. model_path/checkpoint_last.pt, or model_path/checkpoint_last-rank-4.pt if using demix
 model=$2
+# path to results output, e.g. ppl over blocks
 results_path=$3
+# split you'd like to evaluate on ("valid" or "test")
 split=$4
+# domain you'd like to evaluate on
 target_domain=$5
+# if using domain token, set this value to force a particular domain token prepended to each document, e.g "1b" or "med"
 force_domain_token=$6
+
 
 if [[ "$model" == *"domain_token"* ]]; then
         if [[ -z "$force_domain_token" ]]; then

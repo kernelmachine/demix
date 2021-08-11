@@ -1,17 +1,27 @@
-# See tutorial/run.sh for a description of each variable.
 
+# Number of GPUs you'd like to train on
 NUM_GPUS=$1
+# Number of nodes you'd like to train on (assuming 8 GPUs per node)
 NUM_NODES=$((${NUM_GPUS}/8))
+# Distributed port
 PORT=$2
+# Fairseq model name (e.g. transformer_lm; see https://github.com/kernelmachine/demix/blob/main/fairseq/models/transformer_lm.py for other options)
 ARCH=$3
+# Baseline type: choice between demix, dense, unbalanced_dense, and domain_token
 EXPERIMENT=$4
+# Path to data-bins
 DATA_PATH=$5
+# path to directory to where you'd like to output the model
 SERIALIZATION_DIR=$6
+# suffix to append to model output (e.g. "test", "final")
 FILE_SUFFIX=$7
 
 
+# list of domains you'd like to train on, that can be found in $DATA_PATH
 domains=1b,cs,legal,med,anonymized_openwebtext,anonymized_realnews,reddit,anonymized_reviews;
+# validation datasets for each domain
 valid_subset=valid_1b,valid_cs,valid_legal,valid_med,valid_anonymized_openwebtext,valid_anonymized_realnews,valid_reddit,valid_anonymized_reviews;
+# name of wandb project to track model output (at wandb.ai)
 WANDB_PROJECT=gpt3_experiments;
 
 
@@ -19,6 +29,7 @@ TOKENS_PER_SAMPLE=1024;
 BATCH_SIZE=2;
 LOG_INTERVAL=50;
 KEEP_INTERVAL_UPDATES=1;
+
 
 if [[ $ARCH == *"gpt3_small"* ]]; then
      LR=5e-4;
@@ -63,6 +74,7 @@ elif [[ $ARCH == *"transformer_lm"* ]]; then
      NUM_WARMUP_STEPS=$((${NUM_STEPS} * 8 / 100));
 fi;
 
+# $DATA_PARALLEL_GROUPS identifies which ranks we will synchronize over. "A,B C,D" means we will synchronize ranks A,B and synchronize ranks C,D.
 if [[ $NUM_GPUS == "8" ]]; then
      if [[ $EXPERIMENT == *"dense"*  || $EXPERIMENT == *"domain_token"* ]]; then
           DATA_PARALLEL_GROUPS="0,1,2,3,4,5,6,7";
@@ -268,7 +280,6 @@ elif [[ $EXPERIMENT == *"switch"* ]]; then
                --ddp-backend no_c10d \
                --all-gather-list-size 32000;
 elif [[ $EXPERIMENT == *"gshard"* ]]; then
-
      srun --label python fairseq_cli/train.py     \
                $DATA_PATH     \
                --task multidomain_language_modeling     \
