@@ -4,16 +4,6 @@ DEMix Layers for Modular Language Modeling
 
 This code is a fork of Fairseq. It is based on Python 3.8, CUDA 11 and includes PyTorch 1.8.0, NCCL 2.8.4 and apex.
 
-## Installation
-
-```bash
-conda create env demix
-cd demix/
-pip install --editable .
-```
-
-Additionally, please make sure you have the dependencies above installed (check Fairseq documentation for more information).
-
 ## Dataset
 
 The multidomain dataset scripts are housed in another repository, located [here](https://github.com/kernelmachine/demix-data). Clone that repository and follow instructions to setup data to train on.
@@ -21,6 +11,20 @@ The multidomain dataset scripts are housed in another repository, located [here]
 Follow that tutorial to generate data-bins on eight (small) example domains.
 
 Make sure to set the `DATA_DIR` accordingly.
+
+
+## Fairseq Installation
+
+If you've already made an environment from the dataset creation phase, just use that. Otherwise:
+
+```bash
+conda create env --name demix
+cd demix/
+pip install --editable .
+```
+
+Additionally, please make sure you have the dependencies above installed (check Fairseq documentation for more information).
+
 
 ## Basic Training
 
