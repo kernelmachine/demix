@@ -1,6 +1,6 @@
-# DEMix Layers
-DEMix Layers for Modular Language Modeling
+# DEMix
 
+This repository contains modeling utilities for "DEMix Layers: Disentangling Domains for Modular Language Modeling" (Gururangan et. al, 2021).
 
 This code is a fork of Fairseq. It is based on Python 3.8, CUDA 11 and includes PyTorch 1.8.0, NCCL 2.8.4 and apex.
 
@@ -26,9 +26,15 @@ pip install --editable .
 Additionally, please make sure you have the dependencies above installed (check Fairseq documentation for more information).
 
 
-## Basic Training
+## Tutorial 
 
-After setting up those domains, run the following to train a small language model. Note that the scripts in this paper assume you are running on a multi-node GPU cluster with SLURM.
+Here we will follow a tutorial to train on the example domains from the tutorial in the DEMix-data repository.  Note that the model that results from this tutorial is pretty bad, because we're working with very small amounts of data and also a small LM. This tutorial is there to help you quickly understand the pipeline, and ensure that each script completes successfully.
+
+To replicate the DEMix paper, with a GPT-3 model, follow the instructions [here](REPLICATE_PAPER.sh).
+
+### Basic Training
+
+After setting up the example domains, run the following to train a small language model. Note that the scripts in this paper assume you are running on a multi-node GPU cluster with SLURM.
 
 
 First, allocate some nodes, with GPUs with at least 32GB of RAM. Here we allocate 1 node with 8 volta32GB GPUs.
@@ -44,18 +50,19 @@ Then run:
 ```bash
 export NUM_GPUS=8
 export DISTRIBUTED_PORT=12345
-export MODEL=transformer_lm_gpt3_small
+export MODEL=transformer_lm
 export EXPERIMENT=demix
+# $DATA_DIR was set in DEMix-data tutorial.
 export DATA_BIN=${DATA_DIR}/data-bin/
 export EXPERIMENT_SUFFIX=tutorial
-export SERIALIZATION_DIR=/path/to/serialization/dir
+export SERIALIZATION_DIR=$(pwd)/demix_tutorial_model
 bash tutorial/train.sh $NUM_GPUS $DISTRIBUTED_PORT $MODEL $EXPERIMENT $DATA_BIN $SERIALIZATION_DIR $EXPERIMENT_SUFFIX
 ```
 
 This will output a trained language model in `${SERIALIZATION_DIR}`
 
 
-To train balanced dense LM, set `export EXPERIMENT=dense`, to train unbalanced dense LM, set `export EXPERIMENT=unbalanced`, to train +domain token LM , set `export EXPERIMENT=domain_token`.
+To train balanced dense LM, set `export EXPERIMENT=dense`, to train unbalanced dense LM, set `export EXPERIMENT=unbalanced`, to train "+Domain Token" LM , set `export EXPERIMENT=domain_token`.
 
 We have provided a simple script `demix/train.sh`, with the same interface, with all hyperparameter preset to help replicate results in the paper.
 
@@ -65,7 +72,7 @@ We have two ways to evaluate the demix language model: with and without mixing e
 
 ### Evaluating without mixing experts
 
-To evaluate the language model _without_ mixing experts, you can supply the checkpoint from a GPU on a particular rank (to specify the use of a specific domain expert):
+To evaluate the language model _without_ mixing experts, you can supply the checkpoint from a GPU on a particular rank (to specify the use of the domain expert that was trained on that GPU):
 
 ```bash
 export DATA_BIN=${DATA_DIR}/data-bin/
@@ -73,7 +80,7 @@ export GPU_RANK=0
 export PATH_TO_CHECKPOINT=${SERIALIZATION_DIR}/checkpoint_last-rank-${GPU_RANK}.pt
 export OUTPUT_PATH=eval_output.jsonl
 export SPLIT=valid
-export DOMAIN=XXX
+export DOMAIN=imdb
 bash tutorial/eval_lm.sh $DATA_BIN $PATH_TO_CHECKPOINT $OUTPUT_PATH $SPLIT $DOMAIN
 ```
 
