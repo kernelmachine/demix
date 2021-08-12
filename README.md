@@ -26,7 +26,7 @@ pip install --editable .
 Additionally, please make sure you have the dependencies above installed (check Fairseq documentation for more information).
 
 
-## Tutorial 
+## Tutorial
 
 Here we will follow a tutorial to train on the example domains from the tutorial in the DEMix-data repository.  Note that the model that results from this tutorial is pretty bad, because we're working with very small amounts of data and also a small LM. This tutorial is there to help you quickly understand the pipeline, and ensure that each script completes successfully.
 
@@ -56,7 +56,13 @@ export EXPERIMENT=demix
 export DATA_BIN=${DATA_DIR}/data-bin/
 export EXPERIMENT_SUFFIX=tutorial
 export SERIALIZATION_DIR=$(pwd)/demix_tutorial_model
-bash tutorial/train.sh $NUM_GPUS $DISTRIBUTED_PORT $MODEL $EXPERIMENT $DATA_BIN $SERIALIZATION_DIR $EXPERIMENT_SUFFIX
+bash tutorial/train.sh $NUM_GPUS \
+                    $DISTRIBUTED_PORT \
+                    $MODEL \
+                    $EXPERIMENT \
+                    $DATA_BIN \
+                    $SERIALIZATION_DIR \
+                    $EXPERIMENT_SUFFIX
 ```
 
 This will output a trained language model in `${SERIALIZATION_DIR}`

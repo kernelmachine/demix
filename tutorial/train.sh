@@ -17,9 +17,9 @@ FILE_SUFFIX=$7
 
 
 # list of domains you'd like to train on, that can be found in $DATA_PATH
-domains=ag_news,amazon,chemprot,citation_intent,hp-news,imdb,rct,1b_test;
+domains=ag_news,amazon,chemprot,citation_intent,hp-news,imdb,legal_contracts,1b_test;
 # validation datasets for each domain
-valid_subset=valid_ag_news,valid_amazon,valid_chemprot,valid_citation_intent,valid_hp-news,valid_imdb,valid_rct,valid_1b_test;
+valid_subset=valid_ag_news,valid_amazon,valid_chemprot,valid_citation_intent,valid_hp-news,valid_imdb,valid_legal_contracts,valid_1b_test;
 
 # name of wandb project to track model output (at wandb.ai)
 WANDB_PROJECT=debug;
