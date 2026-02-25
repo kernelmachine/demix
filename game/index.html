@@ -1,0 +1,829 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SHIFT - A Dimension Puzzle Game</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { overflow: hidden; background: #000; font-family: 'Courier New', monospace; }
+  canvas { display: block; }
+
+  #blocker {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.85); display: flex; align-items: center;
+    justify-content: center; z-index: 100; flex-direction: column;
+  }
+
+  #title {
+    font-size: 80px; font-weight: bold; letter-spacing: 20px;
+    margin-bottom: 40px; position: relative;
+  }
+  #title .red { color: #ff3355; }
+  #title .blue { color: #3355ff; }
+  #title .overlap { color: #aa44aa; }
+
+  #instructions {
+    color: #888; font-size: 16px; text-align: center; line-height: 2;
+    max-width: 500px;
+  }
+  #instructions .key {
+    display: inline-block; background: #333; color: #fff;
+    padding: 2px 10px; border-radius: 4px; font-size: 14px;
+    border: 1px solid #555; min-width: 30px; text-align: center;
+  }
+  #instructions .red-text { color: #ff3355; }
+  #instructions .blue-text { color: #3355ff; }
+
+  #start-btn {
+    margin-top: 40px; padding: 15px 50px; font-size: 20px;
+    font-family: 'Courier New', monospace; background: transparent;
+    color: #fff; border: 2px solid #fff; cursor: pointer;
+    letter-spacing: 5px; transition: all 0.3s;
+  }
+  #start-btn:hover { background: #fff; color: #000; }
+
+  #hud {
+    position: fixed; top: 0; left: 0; width: 100%; padding: 20px 30px;
+    display: flex; justify-content: space-between; align-items: flex-start;
+    pointer-events: none; z-index: 50;
+  }
+  #dimension-indicator {
+    font-size: 18px; letter-spacing: 3px; transition: color 0.3s;
+    text-shadow: 0 0 20px currentColor;
+  }
+  #level-indicator { color: #666; font-size: 14px; letter-spacing: 2px; }
+  #crosshair {
+    position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    width: 20px; height: 20px; z-index: 50; pointer-events: none; opacity: 0.5;
+  }
+  #crosshair::before, #crosshair::after {
+    content: ''; position: absolute; background: #fff;
+  }
+  #crosshair::before { width: 2px; height: 100%; left: 50%; transform: translateX(-50%); }
+  #crosshair::after { height: 2px; width: 100%; top: 50%; transform: translateY(-50%); }
+
+  #shift-flash {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    pointer-events: none; z-index: 40; opacity: 0; transition: opacity 0.15s;
+  }
+
+  #level-complete {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.9); display: none; align-items: center;
+    justify-content: center; flex-direction: column; z-index: 100;
+  }
+  #level-complete h2 {
+    font-size: 48px; color: #fff; letter-spacing: 10px; margin-bottom: 20px;
+  }
+  #level-complete p { color: #666; font-size: 16px; letter-spacing: 3px; }
+
+  #minimap {
+    position: fixed; bottom: 20px; right: 20px; width: 150px; height: 150px;
+    z-index: 50; pointer-events: none; opacity: 0.6;
+  }
+
+  .hint-text {
+    position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+    color: #555; font-size: 14px; letter-spacing: 2px; z-index: 50;
+    pointer-events: none; transition: opacity 0.5s;
+  }
+</style>
+</head>
+<body>
+
+<div id="blocker">
+  <div id="title">
+    <span class="red">SH</span><span class="overlap">I</span><span class="blue">FT</span>
+  </div>
+  <div id="instructions">
+    <span class="key">W</span> <span class="key">A</span> <span class="key">S</span> <span class="key">D</span> to move<br>
+    <span class="key">MOUSE</span> to look<br><br>
+    Press <span class="key">SPACE</span> to <span class="red-text">SH</span><span class="blue-text">IFT</span> dimensions<br><br>
+    <span class="red-text">Red walls</span> are solid in the <span class="red-text">Red Dimension</span><br>
+    <span class="blue-text">Blue walls</span> are solid in the <span class="blue-text">Blue Dimension</span><br><br>
+    Reach the <span style="color:#fff">white portal</span> to complete each level
+  </div>
+  <button id="start-btn">ENTER</button>
+</div>
+
+<div id="hud">
+  <div id="dimension-indicator">RED DIMENSION</div>
+  <div id="level-indicator">LEVEL 1</div>
+</div>
+<div id="crosshair"></div>
+<div id="shift-flash"></div>
+<canvas id="minimap"></canvas>
+
+<div id="level-complete">
+  <h2>LEVEL COMPLETE</h2>
+  <p>PRESS ENTER TO CONTINUE</p>
+</div>
+
+<div class="hint-text" id="hint"></div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.163.0/build/three.module.js"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+
+// ─── Game State ───
+const state = {
+  dimension: 'red',    // 'red' or 'blue'
+  currentLevel: 0,
+  playing: false,
+  velocity: new THREE.Vector3(),
+  moveForward: false,
+  moveBackward: false,
+  moveLeft: false,
+  moveRight: false,
+  canJump: false,
+  yaw: 0,
+  pitch: 0,
+  shiftCooldown: false,
+  levelComplete: false,
+  shifts: 0,
+};
+
+// ─── Three.js Setup ───
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 200);
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(window.devicePixelRatio);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 0.8;
+document.body.appendChild(renderer.domElement);
+
+// ─── Colors ───
+const RED = 0xff3355;
+const BLUE = 0x3355ff;
+const RED_GHOST = 0x331111;
+const BLUE_GHOST = 0x111133;
+const WHITE = 0xffffff;
+const FLOOR_COLOR = 0x111111;
+const WALL_NEUTRAL = 0x222222;
+
+// ─── Materials ───
+function createMaterials() {
+  return {
+    redSolid: new THREE.MeshStandardMaterial({ color: RED, roughness: 0.3, metalness: 0.1 }),
+    redGhost: new THREE.MeshStandardMaterial({ color: RED_GHOST, transparent: true, opacity: 0.15, roughness: 1 }),
+    blueSolid: new THREE.MeshStandardMaterial({ color: BLUE, roughness: 0.3, metalness: 0.1 }),
+    blueGhost: new THREE.MeshStandardMaterial({ color: BLUE_GHOST, transparent: true, opacity: 0.15, roughness: 1 }),
+    floor: new THREE.MeshStandardMaterial({ color: FLOOR_COLOR, roughness: 0.8 }),
+    neutral: new THREE.MeshStandardMaterial({ color: WALL_NEUTRAL, roughness: 0.6 }),
+    portal: new THREE.MeshStandardMaterial({ color: WHITE, emissive: WHITE, emissiveIntensity: 2, transparent: true, opacity: 0.9 }),
+  };
+}
+const materials = createMaterials();
+
+// ─── Collision Data ───
+let redWalls = [];
+let blueWalls = [];
+let neutralWalls = [];
+let portalBox = null;
+let portalMesh = null;
+
+// ─── Player ───
+const PLAYER_HEIGHT = 1.7;
+const PLAYER_RADIUS = 0.3;
+const MOVE_SPEED = 6;
+const GRAVITY = -20;
+const JUMP_SPEED = 8;
+
+// ─── Level Definitions ───
+// Each wall: { pos: [x,y,z], size: [w,h,d], type: 'red'|'blue'|'neutral' }
+// portal: { pos: [x,y,z] }
+// spawn: [x, y, z]
+// hint: string (optional)
+
+const levels = [
+  // Level 1: Introduction - Simple corridor with one red wall blocking
+  {
+    spawn: [0, PLAYER_HEIGHT, 0],
+    portal: { pos: [0, 1, -18] },
+    hint: "Press SPACE to shift and walk through colored walls",
+    walls: [
+      // Corridor
+      { pos: [-3, 2, -9], size: [0.3, 4, 20], type: 'neutral' },
+      { pos: [3, 2, -9], size: [0.3, 4, 20], type: 'neutral' },
+      { pos: [0, 2, 1.5], size: [6, 4, 0.3], type: 'neutral' },
+      // Floor
+      { pos: [0, -0.15, -9], size: [6, 0.3, 20], type: 'floor' },
+      // Blocking red wall
+      { pos: [0, 2, -6], size: [6, 4, 0.4], type: 'red' },
+      // Back wall
+      { pos: [0, 2, -19.5], size: [6, 4, 0.3], type: 'neutral' },
+    ],
+  },
+
+  // Level 2: Two walls - need to shift twice
+  {
+    spawn: [0, PLAYER_HEIGHT, 0],
+    portal: { pos: [0, 1, -24] },
+    hint: "Shift to pass red walls, shift back to pass blue walls",
+    walls: [
+      // Corridor
+      { pos: [-3, 2, -12], size: [0.3, 4, 26], type: 'neutral' },
+      { pos: [3, 2, -12], size: [0.3, 4, 26], type: 'neutral' },
+      { pos: [0, 2, 1.5], size: [6, 4, 0.3], type: 'neutral' },
+      { pos: [0, -0.15, -12], size: [6, 0.3, 26], type: 'floor' },
+      // Red wall
+      { pos: [0, 2, -6], size: [6, 4, 0.4], type: 'red' },
+      // Blue wall
+      { pos: [0, 2, -14], size: [6, 4, 0.4], type: 'blue' },
+      // Back wall
+      { pos: [0, 2, -25.5], size: [6, 4, 0.3], type: 'neutral' },
+    ],
+  },
+
+  // Level 3: Maze-like - dimensional pathfinding
+  {
+    spawn: [0, PLAYER_HEIGHT, 0],
+    portal: { pos: [12, 1, -12] },
+    hint: "Find the path through overlapping dimensions",
+    walls: [
+      // Floor
+      { pos: [6, -0.15, -6], size: [20, 0.3, 20], type: 'floor' },
+      // Outer walls
+      { pos: [-4, 2, -6], size: [0.3, 4, 20], type: 'neutral' },
+      { pos: [16, 2, -6], size: [0.3, 4, 20], type: 'neutral' },
+      { pos: [6, 2, 4.5], size: [20, 4, 0.3], type: 'neutral' },
+      { pos: [6, 2, -16.5], size: [20, 4, 0.3], type: 'neutral' },
+      // Internal maze walls
+      { pos: [0, 2, -4], size: [8, 4, 0.4], type: 'red' },
+      { pos: [4, 2, -8], size: [0.4, 4, 8], type: 'blue' },
+      { pos: [8, 2, -4], size: [0.4, 4, 8], type: 'red' },
+      { pos: [10, 2, -10], size: [8, 4, 0.4], type: 'blue' },
+      { pos: [12, 2, -4], size: [0.4, 4, 8], type: 'red' },
+      { pos: [6, 2, -14], size: [12, 4, 0.4], type: 'red' },
+      { pos: [2, 2, -12], size: [0.4, 4, 6], type: 'blue' },
+    ],
+  },
+
+  // Level 4: Multi-room with tricky routing
+  {
+    spawn: [0, PLAYER_HEIGHT, 0],
+    portal: { pos: [20, 1, -20] },
+    hint: "Think about which dimension lets you reach each room",
+    walls: [
+      // Floor
+      { pos: [10, -0.15, -10], size: [28, 0.3, 28], type: 'floor' },
+      // Outer boundary
+      { pos: [-4, 2, -10], size: [0.3, 4, 28], type: 'neutral' },
+      { pos: [24, 2, -10], size: [0.3, 4, 28], type: 'neutral' },
+      { pos: [10, 2, 4.5], size: [28, 4, 0.3], type: 'neutral' },
+      { pos: [10, 2, -24.5], size: [28, 4, 0.3], type: 'neutral' },
+      // Room dividers - creating a grid of rooms
+      // Vertical dividers
+      { pos: [7, 2, -4], size: [0.4, 4, 10], type: 'red' },
+      { pos: [7, 2, -18], size: [0.4, 4, 10], type: 'blue' },
+      { pos: [14, 2, -4], size: [0.4, 4, 10], type: 'blue' },
+      { pos: [14, 2, -18], size: [0.4, 4, 10], type: 'red' },
+      // Horizontal dividers
+      { pos: [3, 2, -10], size: [10, 4, 0.4], type: 'blue' },
+      { pos: [17, 2, -10], size: [10, 4, 0.4], type: 'red' },
+      // Extra obstacles
+      { pos: [10, 2, -6], size: [6, 4, 0.4], type: 'red' },
+      { pos: [10, 2, -16], size: [6, 4, 0.4], type: 'blue' },
+      { pos: [20, 2, -14], size: [0.4, 4, 6], type: 'blue' },
+    ],
+  },
+
+  // Level 5: The gauntlet - rapid shifting required
+  {
+    spawn: [0, PLAYER_HEIGHT, 0],
+    portal: { pos: [0, 1, -40] },
+    hint: "Shift rapidly to navigate the gauntlet",
+    walls: [
+      // Narrow corridor
+      { pos: [-2.5, 2, -20], size: [0.3, 4, 42], type: 'neutral' },
+      { pos: [2.5, 2, -20], size: [0.3, 4, 42], type: 'neutral' },
+      { pos: [0, 2, 1.5], size: [5, 4, 0.3], type: 'neutral' },
+      { pos: [0, -0.15, -20], size: [5, 0.3, 42], type: 'floor' },
+      // Alternating walls - the gauntlet
+      { pos: [0, 2, -3], size: [5, 4, 0.4], type: 'red' },
+      { pos: [0, 2, -7], size: [5, 4, 0.4], type: 'blue' },
+      { pos: [0, 2, -11], size: [5, 4, 0.4], type: 'red' },
+      { pos: [0, 2, -15], size: [5, 4, 0.4], type: 'blue' },
+      { pos: [0, 2, -19], size: [5, 4, 0.4], type: 'red' },
+      { pos: [0, 2, -23], size: [5, 4, 0.4], type: 'blue' },
+      { pos: [0, 2, -27], size: [5, 4, 0.4], type: 'red' },
+      { pos: [0, 2, -31], size: [5, 4, 0.4], type: 'blue' },
+      { pos: [0, 2, -35], size: [5, 4, 0.4], type: 'red' },
+      { pos: [0, 2, -39], size: [5, 4, 0.4], type: 'blue' },
+      // Back wall
+      { pos: [0, 2, -41.5], size: [5, 4, 0.3], type: 'neutral' },
+    ],
+  },
+
+  // Level 6: Open arena - complex pathfinding
+  {
+    spawn: [-8, PLAYER_HEIGHT, 8],
+    portal: { pos: [8, 1, -8] },
+    hint: "Study the layout. Plan your shifts carefully.",
+    walls: [
+      // Floor
+      { pos: [0, -0.15, 0], size: [26, 0.3, 26], type: 'floor' },
+      // Outer boundary
+      { pos: [-13, 2, 0], size: [0.3, 4, 26], type: 'neutral' },
+      { pos: [13, 2, 0], size: [0.3, 4, 26], type: 'neutral' },
+      { pos: [0, 2, 13], size: [26, 4, 0.3], type: 'neutral' },
+      { pos: [0, 2, -13], size: [26, 4, 0.3], type: 'neutral' },
+      // Internal structure - concentric barriers
+      // Outer ring
+      { pos: [-6, 2, 4], size: [0.4, 4, 14], type: 'red' },
+      { pos: [6, 2, -4], size: [0.4, 4, 14], type: 'red' },
+      { pos: [-2, 2, 8], size: [8, 4, 0.4], type: 'blue' },
+      { pos: [2, 2, -8], size: [8, 4, 0.4], type: 'blue' },
+      // Inner ring
+      { pos: [-3, 2, 0], size: [0.4, 4, 8], type: 'blue' },
+      { pos: [3, 2, 0], size: [0.4, 4, 8], type: 'blue' },
+      { pos: [0, 2, 4], size: [6, 4, 0.4], type: 'red' },
+      { pos: [0, 2, -4], size: [6, 4, 0.4], type: 'red' },
+      // Cross barriers
+      { pos: [9, 2, 6], size: [8, 4, 0.4], type: 'red' },
+      { pos: [-9, 2, -6], size: [8, 4, 0.4], type: 'blue' },
+      { pos: [9, 2, -2], size: [0.4, 4, 6], type: 'blue' },
+      { pos: [-9, 2, 2], size: [0.4, 4, 6], type: 'red' },
+    ],
+  },
+];
+
+// ─── Lighting ───
+function setupLighting() {
+  scene.fog = new THREE.FogExp2(0x000000, 0.025);
+  const ambient = new THREE.AmbientLight(0x222222, 0.5);
+  scene.add(ambient);
+
+  // Dimension-colored point lights that follow the player
+  const redLight = new THREE.PointLight(RED, 0, 30);
+  redLight.name = 'redLight';
+  scene.add(redLight);
+
+  const blueLight = new THREE.PointLight(BLUE, 0, 30);
+  blueLight.name = 'blueLight';
+  scene.add(blueLight);
+
+  // Soft overhead
+  const overhead = new THREE.DirectionalLight(0xffffff, 0.3);
+  overhead.position.set(5, 10, 5);
+  scene.add(overhead);
+}
+
+// ─── Level Building ───
+function clearLevel() {
+  while (scene.children.length > 0) scene.remove(scene.children[0]);
+  redWalls = [];
+  blueWalls = [];
+  neutralWalls = [];
+  portalBox = null;
+  portalMesh = null;
+}
+
+function buildLevel(levelIndex) {
+  clearLevel();
+  setupLighting();
+
+  const level = levels[levelIndex];
+  const wallGeo = new THREE.BoxGeometry(1, 1, 1);
+
+  level.walls.forEach(w => {
+    const mesh = new THREE.Mesh(wallGeo, getMaterial(w.type, state.dimension));
+    mesh.scale.set(w.size[0], w.size[1], w.size[2]);
+    mesh.position.set(w.pos[0], w.pos[1], w.pos[2]);
+    mesh.userData.wallType = w.type;
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    scene.add(mesh);
+
+    const box = new THREE.Box3().setFromObject(mesh);
+    if (w.type === 'red') redWalls.push({ mesh, box });
+    else if (w.type === 'blue') blueWalls.push({ mesh, box });
+    else neutralWalls.push({ mesh, box });
+  });
+
+  // Portal
+  const portalGeo = new THREE.CylinderGeometry(0.8, 0.8, 2.5, 16, 1, true);
+  portalMesh = new THREE.Mesh(portalGeo, materials.portal);
+  portalMesh.position.set(level.portal.pos[0], level.portal.pos[1] + 0.25, level.portal.pos[2]);
+  scene.add(portalMesh);
+
+  // Portal glow
+  const portalLight = new THREE.PointLight(WHITE, 2, 8);
+  portalLight.position.copy(portalMesh.position);
+  scene.add(portalLight);
+
+  // Portal collision
+  portalBox = new THREE.Box3().setFromCenterAndSize(
+    new THREE.Vector3(level.portal.pos[0], level.portal.pos[1] + 1, level.portal.pos[2]),
+    new THREE.Vector3(1.6, 2.5, 1.6)
+  );
+
+  // Particle ring around portal
+  const ringGeo = new THREE.TorusGeometry(1.2, 0.03, 8, 32);
+  const ringMat = new THREE.MeshBasicMaterial({ color: WHITE });
+  const ring = new THREE.Mesh(ringGeo, ringMat);
+  ring.position.copy(portalMesh.position);
+  ring.position.y += 1;
+  ring.rotation.x = Math.PI / 2;
+  ring.name = 'portalRing';
+  scene.add(ring);
+
+  // Set spawn
+  camera.position.set(level.spawn[0], level.spawn[1], level.spawn[2]);
+  state.yaw = 0;
+  state.pitch = 0;
+  state.velocity.set(0, 0, 0);
+
+  // Show hint
+  const hintEl = document.getElementById('hint');
+  if (level.hint) {
+    hintEl.textContent = level.hint;
+    hintEl.style.opacity = 1;
+    setTimeout(() => { hintEl.style.opacity = 0; }, 5000);
+  } else {
+    hintEl.style.opacity = 0;
+  }
+
+  document.getElementById('level-indicator').textContent = `LEVEL ${levelIndex + 1}`;
+  state.shifts = 0;
+}
+
+function getMaterial(wallType, dimension) {
+  if (wallType === 'floor') return materials.floor;
+  if (wallType === 'neutral') return materials.neutral;
+  if (wallType === 'red') return dimension === 'red' ? materials.redSolid : materials.redGhost;
+  if (wallType === 'blue') return dimension === 'blue' ? materials.blueSolid : materials.blueGhost;
+  return materials.neutral;
+}
+
+// ─── Dimension Shift ───
+function shiftDimension() {
+  if (state.shiftCooldown) return;
+  state.shiftCooldown = true;
+  state.shifts++;
+
+  state.dimension = state.dimension === 'red' ? 'blue' : 'red';
+
+  // Flash effect
+  const flash = document.getElementById('shift-flash');
+  flash.style.background = state.dimension === 'red' ? 'rgba(255,51,85,0.3)' : 'rgba(51,85,255,0.3)';
+  flash.style.opacity = 1;
+  setTimeout(() => { flash.style.opacity = 0; }, 150);
+
+  // Update indicator
+  const indicator = document.getElementById('dimension-indicator');
+  indicator.textContent = state.dimension === 'red' ? 'RED DIMENSION' : 'BLUE DIMENSION';
+  indicator.style.color = state.dimension === 'red' ? '#ff3355' : '#3355ff';
+
+  // Update all wall materials
+  scene.traverse(child => {
+    if (child.isMesh && child.userData.wallType) {
+      child.material = getMaterial(child.userData.wallType, state.dimension);
+    }
+  });
+
+  // Update wall bounding boxes
+  redWalls.forEach(w => w.box.setFromObject(w.mesh));
+  blueWalls.forEach(w => w.box.setFromObject(w.mesh));
+
+  // Check if player is now inside a solid wall - push them out
+  const playerBox = new THREE.Box3().setFromCenterAndSize(
+    camera.position.clone().setY(camera.position.y - PLAYER_HEIGHT / 2 + 0.5),
+    new THREE.Vector3(PLAYER_RADIUS * 2, PLAYER_HEIGHT - 0.2, PLAYER_RADIUS * 2)
+  );
+
+  const activeWalls = state.dimension === 'red' ? redWalls : blueWalls;
+  for (const w of activeWalls) {
+    if (playerBox.intersectsBox(w.box)) {
+      // Can't shift here - revert!
+      state.dimension = state.dimension === 'red' ? 'blue' : 'red';
+      flash.style.background = 'rgba(255,0,0,0.5)';
+      flash.style.opacity = 1;
+      setTimeout(() => { flash.style.opacity = 0; }, 200);
+      indicator.textContent = state.dimension === 'red' ? 'RED DIMENSION' : 'BLUE DIMENSION';
+      indicator.style.color = state.dimension === 'red' ? '#ff3355' : '#3355ff';
+      scene.traverse(child => {
+        if (child.isMesh && child.userData.wallType) {
+          child.material = getMaterial(child.userData.wallType, state.dimension);
+        }
+      });
+      state.shiftCooldown = false;
+      return;
+    }
+  }
+
+  setTimeout(() => { state.shiftCooldown = false; }, 200);
+}
+
+// ─── Collision Detection ───
+function getActiveWalls() {
+  const walls = [...neutralWalls];
+  if (state.dimension === 'red') walls.push(...redWalls);
+  else walls.push(...blueWalls);
+  return walls;
+}
+
+function checkCollision(newPos) {
+  const playerBox = new THREE.Box3().setFromCenterAndSize(
+    new THREE.Vector3(newPos.x, newPos.y - PLAYER_HEIGHT / 2 + 0.5, newPos.z),
+    new THREE.Vector3(PLAYER_RADIUS * 2, PLAYER_HEIGHT - 0.2, PLAYER_RADIUS * 2)
+  );
+
+  const walls = getActiveWalls();
+  for (const w of walls) {
+    if (playerBox.intersectsBox(w.box)) return true;
+  }
+  return false;
+}
+
+function checkPortal() {
+  if (!portalBox) return false;
+  const playerPos = new THREE.Vector3(camera.position.x, camera.position.y - PLAYER_HEIGHT / 2 + 0.5, camera.position.z);
+  const playerBox = new THREE.Box3().setFromCenterAndSize(
+    playerPos,
+    new THREE.Vector3(PLAYER_RADIUS * 2, PLAYER_HEIGHT, PLAYER_RADIUS * 2)
+  );
+  return playerBox.intersectsBox(portalBox);
+}
+
+// ─── Movement ───
+function updateMovement(delta) {
+  if (!state.playing || state.levelComplete) return;
+
+  // Gravity
+  state.velocity.y += GRAVITY * delta;
+
+  // Horizontal movement
+  const direction = new THREE.Vector3();
+  const forward = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), state.yaw);
+  const right = new THREE.Vector3(1, 0, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), state.yaw);
+
+  if (state.moveForward) direction.add(forward);
+  if (state.moveBackward) direction.sub(forward);
+  if (state.moveRight) direction.add(right);
+  if (state.moveLeft) direction.sub(right);
+
+  if (direction.length() > 0) direction.normalize();
+
+  const speed = MOVE_SPEED * delta;
+  const newPos = camera.position.clone();
+
+  // Move X
+  newPos.x += direction.x * speed;
+  if (!checkCollision(newPos)) {
+    camera.position.x = newPos.x;
+  } else {
+    newPos.x = camera.position.x;
+  }
+
+  // Move Z
+  newPos.z += direction.z * speed;
+  if (!checkCollision(newPos)) {
+    camera.position.z = newPos.z;
+  } else {
+    newPos.z = camera.position.z;
+  }
+
+  // Move Y (gravity/jump)
+  newPos.y = camera.position.y + state.velocity.y * delta;
+  if (newPos.y < PLAYER_HEIGHT) {
+    newPos.y = PLAYER_HEIGHT;
+    state.velocity.y = 0;
+    state.canJump = true;
+  }
+  camera.position.y = newPos.y;
+
+  // Camera rotation
+  camera.rotation.set(0, 0, 0);
+  camera.rotateOnWorldAxis(new THREE.Vector3(0, 1, 0), state.yaw);
+  camera.rotateOnAxis(new THREE.Vector3(1, 0, 0), state.pitch);
+
+  // Update dimension lights
+  const redLight = scene.getObjectByName('redLight');
+  const blueLight = scene.getObjectByName('blueLight');
+  if (redLight) {
+    redLight.position.copy(camera.position);
+    redLight.intensity = state.dimension === 'red' ? 1.5 : 0.1;
+  }
+  if (blueLight) {
+    blueLight.position.copy(camera.position);
+    blueLight.intensity = state.dimension === 'blue' ? 1.5 : 0.1;
+  }
+
+  // Portal animation
+  if (portalMesh) {
+    portalMesh.rotation.y += delta * 2;
+  }
+  const ring = scene.getObjectByName('portalRing');
+  if (ring) {
+    ring.rotation.z += delta * 1.5;
+    ring.scale.setScalar(1 + Math.sin(Date.now() * 0.003) * 0.1);
+  }
+
+  // Check portal
+  if (checkPortal()) {
+    completeLevel();
+  }
+}
+
+// ─── Minimap ───
+function drawMinimap() {
+  const canvas = document.getElementById('minimap');
+  const ctx = canvas.getContext('2d');
+  canvas.width = 150;
+  canvas.height = 150;
+  ctx.clearRect(0, 0, 150, 150);
+
+  const level = levels[state.currentLevel];
+  if (!level) return;
+
+  // Find bounds
+  let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+  level.walls.forEach(w => {
+    minX = Math.min(minX, w.pos[0] - w.size[0] / 2);
+    maxX = Math.max(maxX, w.pos[0] + w.size[0] / 2);
+    minZ = Math.min(minZ, w.pos[2] - w.size[2] / 2);
+    maxZ = Math.max(maxZ, w.pos[2] + w.size[2] / 2);
+  });
+
+  const rangeX = maxX - minX + 4;
+  const rangeZ = maxZ - minZ + 4;
+  const scale = Math.min(140 / rangeX, 140 / rangeZ);
+  const ox = 75 - ((minX + maxX) / 2) * scale;
+  const oz = 75 - ((minZ + maxZ) / 2) * scale;
+
+  // Draw walls
+  level.walls.forEach(w => {
+    if (w.type === 'floor') return;
+    const x = w.pos[0] * scale + ox - (w.size[0] * scale) / 2;
+    const z = w.pos[2] * scale + oz - (w.size[2] * scale) / 2;
+    const width = Math.max(w.size[0] * scale, 1);
+    const height = Math.max(w.size[2] * scale, 1);
+
+    if (w.type === 'red') {
+      ctx.fillStyle = state.dimension === 'red' ? '#ff3355' : 'rgba(255,51,85,0.2)';
+    } else if (w.type === 'blue') {
+      ctx.fillStyle = state.dimension === 'blue' ? '#3355ff' : 'rgba(51,85,255,0.2)';
+    } else {
+      ctx.fillStyle = '#444';
+    }
+    ctx.fillRect(x, z, width, height);
+  });
+
+  // Draw portal
+  const px = level.portal.pos[0] * scale + ox;
+  const pz = level.portal.pos[2] * scale + oz;
+  ctx.fillStyle = '#fff';
+  ctx.beginPath();
+  ctx.arc(px, pz, 4, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Draw player
+  const playerX = camera.position.x * scale + ox;
+  const playerZ = camera.position.z * scale + oz;
+  ctx.fillStyle = state.dimension === 'red' ? '#ff3355' : '#3355ff';
+  ctx.beginPath();
+  ctx.arc(playerX, playerZ, 3, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Direction indicator
+  const dirLen = 8;
+  const dirX = playerX + Math.sin(state.yaw) * -dirLen;
+  const dirZ = playerZ + Math.cos(state.yaw) * -dirLen;
+  ctx.strokeStyle = '#fff';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(playerX, playerZ);
+  ctx.lineTo(dirX, dirZ);
+  ctx.stroke();
+}
+
+// ─── Level Complete ───
+function completeLevel() {
+  if (state.levelComplete) return;
+  state.levelComplete = true;
+
+  const el = document.getElementById('level-complete');
+  el.style.display = 'flex';
+
+  if (state.currentLevel >= levels.length - 1) {
+    el.querySelector('h2').textContent = 'YOU WIN';
+    el.querySelector('p').textContent = `COMPLETED ALL ${levels.length} LEVELS • PRESS ENTER TO RESTART`;
+  } else {
+    el.querySelector('p').textContent = `SHIFTS USED: ${state.shifts} • PRESS ENTER TO CONTINUE`;
+  }
+}
+
+function nextLevel() {
+  state.levelComplete = false;
+  document.getElementById('level-complete').style.display = 'none';
+
+  if (state.currentLevel >= levels.length - 1) {
+    state.currentLevel = 0;
+  } else {
+    state.currentLevel++;
+  }
+
+  state.dimension = 'red';
+  const indicator = document.getElementById('dimension-indicator');
+  indicator.textContent = 'RED DIMENSION';
+  indicator.style.color = '#ff3355';
+
+  buildLevel(state.currentLevel);
+}
+
+// ─── Input ───
+function setupInput() {
+  document.addEventListener('keydown', (e) => {
+    if (e.code === 'Enter' && state.levelComplete) {
+      nextLevel();
+      return;
+    }
+    if (!state.playing) return;
+
+    switch (e.code) {
+      case 'KeyW': case 'ArrowUp': state.moveForward = true; break;
+      case 'KeyS': case 'ArrowDown': state.moveBackward = true; break;
+      case 'KeyA': case 'ArrowLeft': state.moveLeft = true; break;
+      case 'KeyD': case 'ArrowRight': state.moveRight = true; break;
+      case 'Space':
+        e.preventDefault();
+        shiftDimension();
+        break;
+    }
+  });
+
+  document.addEventListener('keyup', (e) => {
+    switch (e.code) {
+      case 'KeyW': case 'ArrowUp': state.moveForward = false; break;
+      case 'KeyS': case 'ArrowDown': state.moveBackward = false; break;
+      case 'KeyA': case 'ArrowLeft': state.moveLeft = false; break;
+      case 'KeyD': case 'ArrowRight': state.moveRight = false; break;
+    }
+  });
+
+  document.addEventListener('mousemove', (e) => {
+    if (!state.playing || document.pointerLockElement !== renderer.domElement) return;
+    state.yaw -= e.movementX * 0.002;
+    state.pitch -= e.movementY * 0.002;
+    state.pitch = Math.max(-Math.PI / 2.1, Math.min(Math.PI / 2.1, state.pitch));
+  });
+
+  renderer.domElement.addEventListener('click', () => {
+    if (state.playing) renderer.domElement.requestPointerLock();
+  });
+
+  document.addEventListener('pointerlockchange', () => {
+    if (document.pointerLockElement !== renderer.domElement) {
+      // Paused - could show menu
+    }
+  });
+}
+
+// ─── Start ───
+document.getElementById('start-btn').addEventListener('click', () => {
+  document.getElementById('blocker').style.display = 'none';
+  state.playing = true;
+  renderer.domElement.requestPointerLock();
+  buildLevel(0);
+});
+
+// ─── Resize ───
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+// ─── Game Loop ───
+setupInput();
+setupLighting();
+buildLevel(0);
+
+// Set initial dimension indicator color
+document.getElementById('dimension-indicator').style.color = '#ff3355';
+
+const clock = new THREE.Clock();
+function animate() {
+  requestAnimationFrame(animate);
+  const delta = Math.min(clock.getDelta(), 0.05);
+
+  updateMovement(delta);
+  drawMinimap();
+  renderer.render(scene, camera);
+}
+animate();
+</script>
+</body>
+</html>
