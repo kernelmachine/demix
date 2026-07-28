@@ -88,6 +88,66 @@
     color: #555; font-size: 14px; letter-spacing: 2px; z-index: 50;
     pointer-events: none; transition: opacity 0.5s;
   }
+
+  /* ─── Mobile Touch Controls ─── */
+  .touch-controls { display: none; }
+
+  @media (pointer: coarse), (max-width: 768px) {
+    .touch-controls { display: block; }
+    #minimap { width: 100px; height: 100px; bottom: 10px; right: 10px; }
+    #crosshair { width: 16px; height: 16px; }
+    #dimension-indicator { font-size: 14px; letter-spacing: 2px; }
+    #level-indicator { font-size: 12px; }
+    .hint-text { font-size: 12px; bottom: 120px; }
+    #title { font-size: 48px; letter-spacing: 12px; }
+    #instructions { font-size: 13px; }
+    #level-complete h2 { font-size: 32px; letter-spacing: 6px; }
+    #level-complete p { font-size: 14px; }
+  }
+
+  #joystick-zone {
+    position: fixed; bottom: 0; left: 0; width: 45%; height: 45%;
+    z-index: 60; touch-action: none;
+  }
+  #joystick-base {
+    position: absolute; width: 120px; height: 120px;
+    border: 2px solid rgba(255,255,255,0.2); border-radius: 50%;
+    bottom: 40px; left: 30px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  #joystick-thumb {
+    width: 50px; height: 50px; border-radius: 50%;
+    background: rgba(255,255,255,0.3); pointer-events: none;
+    transition: none;
+  }
+
+  #shift-btn {
+    position: fixed; bottom: 40px; right: 30px;
+    width: 80px; height: 80px; border-radius: 50%;
+    border: 2px solid rgba(255,255,255,0.4);
+    background: rgba(255,51,85,0.2); color: #fff;
+    font-family: 'Courier New', monospace; font-size: 14px;
+    font-weight: bold; letter-spacing: 2px; z-index: 60;
+    touch-action: none; display: flex; align-items: center;
+    justify-content: center; user-select: none;
+    -webkit-user-select: none; transition: background 0.3s, border-color 0.3s;
+  }
+  #shift-btn.blue {
+    background: rgba(51,85,255,0.2);
+    border-color: rgba(51,85,255,0.5);
+  }
+
+  #look-zone {
+    position: fixed; top: 0; right: 0; width: 55%; height: 100%;
+    z-index: 55; touch-action: none;
+  }
+
+  #next-btn {
+    margin-top: 30px; padding: 15px 40px; font-size: 18px;
+    font-family: 'Courier New', monospace; background: transparent;
+    color: #fff; border: 2px solid #fff; cursor: pointer;
+    letter-spacing: 3px; display: none;
+  }
 </style>
 </head>
 <body>
@@ -97,9 +157,15 @@
     <span class="red">SH</span><span class="overlap">I</span><span class="blue">FT</span>
   </div>
   <div id="instructions">
-    <span class="key">W</span> <span class="key">A</span> <span class="key">S</span> <span class="key">D</span> to move<br>
-    <span class="key">MOUSE</span> to look<br><br>
-    Press <span class="key">SPACE</span> to <span class="red-text">SH</span><span class="blue-text">IFT</span> dimensions<br><br>
+    <span id="desktop-controls">
+      <span class="key">W</span> <span class="key">A</span> <span class="key">S</span> <span class="key">D</span> to move<br>
+      <span class="key">MOUSE</span> to look<br><br>
+      Press <span class="key">SPACE</span> to <span class="red-text">SH</span><span class="blue-text">IFT</span> dimensions<br><br>
+    </span>
+    <span id="mobile-controls" style="display:none">
+      Left stick to move &bull; Swipe right side to look<br><br>
+      Tap <span class="red-text">SH</span><span class="blue-text">IFT</span> button to switch dimensions<br><br>
+    </span>
     <span class="red-text">Red walls</span> are solid in the <span class="red-text">Red Dimension</span><br>
     <span class="blue-text">Blue walls</span> are solid in the <span class="blue-text">Blue Dimension</span><br><br>
     Reach the <span style="color:#fff">white portal</span> to complete each level
@@ -118,9 +184,19 @@
 <div id="level-complete">
   <h2>LEVEL COMPLETE</h2>
   <p>PRESS ENTER TO CONTINUE</p>
+  <button id="next-btn">NEXT LEVEL</button>
 </div>
 
 <div class="hint-text" id="hint"></div>
+
+<!-- Mobile Touch Controls -->
+<div class="touch-controls" id="joystick-zone">
+  <div id="joystick-base">
+    <div id="joystick-thumb"></div>
+  </div>
+</div>
+<div class="touch-controls" id="look-zone"></div>
+<div class="touch-controls" id="shift-btn">SHIFT</div>
 
 <script type="importmap">
 {
@@ -717,17 +793,33 @@ function completeLevel() {
   const el = document.getElementById('level-complete');
   el.style.display = 'flex';
 
+  const nextBtn = document.getElementById('next-btn');
+  const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+
   if (state.currentLevel >= levels.length - 1) {
     el.querySelector('h2').textContent = 'YOU WIN';
-    el.querySelector('p').textContent = `COMPLETED ALL ${levels.length} LEVELS • PRESS ENTER TO RESTART`;
+    el.querySelector('p').textContent = `COMPLETED ALL ${levels.length} LEVELS`;
+    if (isTouchDevice) {
+      nextBtn.style.display = 'block';
+      nextBtn.textContent = 'RESTART';
+    } else {
+      el.querySelector('p').textContent += ' • PRESS ENTER TO RESTART';
+    }
   } else {
-    el.querySelector('p').textContent = `SHIFTS USED: ${state.shifts} • PRESS ENTER TO CONTINUE`;
+    el.querySelector('p').textContent = `SHIFTS USED: ${state.shifts}`;
+    if (isTouchDevice) {
+      nextBtn.style.display = 'block';
+      nextBtn.textContent = 'NEXT LEVEL';
+    } else {
+      el.querySelector('p').textContent += ' • PRESS ENTER TO CONTINUE';
+    }
   }
 }
 
 function nextLevel() {
   state.levelComplete = false;
   document.getElementById('level-complete').style.display = 'none';
+  document.getElementById('next-btn').style.display = 'none';
 
   if (state.currentLevel >= levels.length - 1) {
     state.currentLevel = 0;
@@ -781,21 +873,156 @@ function setupInput() {
   });
 
   renderer.domElement.addEventListener('click', () => {
-    if (state.playing) renderer.domElement.requestPointerLock();
+    const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+    if (state.playing && !isTouchDevice) renderer.domElement.requestPointerLock();
   });
+}
 
-  document.addEventListener('pointerlockchange', () => {
-    if (document.pointerLockElement !== renderer.domElement) {
-      // Paused - could show menu
+// ─── Mobile Detection ───
+const isMobile = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) ||
+  window.matchMedia('(pointer: coarse)').matches;
+
+if (isMobile) {
+  document.getElementById('desktop-controls').style.display = 'none';
+  document.getElementById('mobile-controls').style.display = '';
+}
+
+// ─── Touch Controls ───
+const joystick = { active: false, touchId: null, startX: 0, startY: 0, dx: 0, dy: 0 };
+const look = { active: false, touchId: null, lastX: 0, lastY: 0 };
+
+function setupTouchInput() {
+  const joystickZone = document.getElementById('joystick-zone');
+  const joystickThumb = document.getElementById('joystick-thumb');
+  const joystickBase = document.getElementById('joystick-base');
+  const lookZone = document.getElementById('look-zone');
+  const shiftBtn = document.getElementById('shift-btn');
+  const nextBtn = document.getElementById('next-btn');
+
+  if (!joystickZone) return;
+
+  const JOYSTICK_MAX = 40;
+
+  // Joystick
+  joystickZone.addEventListener('touchstart', (e) => {
+    if (joystick.active) return;
+    const t = e.changedTouches[0];
+    joystick.active = true;
+    joystick.touchId = t.identifier;
+    const rect = joystickBase.getBoundingClientRect();
+    joystick.startX = rect.left + rect.width / 2;
+    joystick.startY = rect.top + rect.height / 2;
+    e.preventDefault();
+  }, { passive: false });
+
+  joystickZone.addEventListener('touchmove', (e) => {
+    for (const t of e.changedTouches) {
+      if (t.identifier === joystick.touchId) {
+        let dx = t.clientX - joystick.startX;
+        let dy = t.clientY - joystick.startY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist > JOYSTICK_MAX) { dx *= JOYSTICK_MAX / dist; dy *= JOYSTICK_MAX / dist; }
+        joystick.dx = dx / JOYSTICK_MAX;
+        joystick.dy = dy / JOYSTICK_MAX;
+        joystickThumb.style.transform = `translate(${dx}px, ${dy}px)`;
+      }
     }
+    e.preventDefault();
+  }, { passive: false });
+
+  const resetJoystick = (e) => {
+    for (const t of e.changedTouches) {
+      if (t.identifier === joystick.touchId) {
+        joystick.active = false;
+        joystick.touchId = null;
+        joystick.dx = 0;
+        joystick.dy = 0;
+        joystickThumb.style.transform = 'translate(0, 0)';
+      }
+    }
+  };
+  joystickZone.addEventListener('touchend', resetJoystick);
+  joystickZone.addEventListener('touchcancel', resetJoystick);
+
+  // Look zone (right side)
+  lookZone.addEventListener('touchstart', (e) => {
+    if (look.active) return;
+    const t = e.changedTouches[0];
+    look.active = true;
+    look.touchId = t.identifier;
+    look.lastX = t.clientX;
+    look.lastY = t.clientY;
+    e.preventDefault();
+  }, { passive: false });
+
+  lookZone.addEventListener('touchmove', (e) => {
+    for (const t of e.changedTouches) {
+      if (t.identifier === look.touchId) {
+        const dx = t.clientX - look.lastX;
+        const dy = t.clientY - look.lastY;
+        state.yaw -= dx * 0.004;
+        state.pitch -= dy * 0.004;
+        state.pitch = Math.max(-Math.PI / 2.1, Math.min(Math.PI / 2.1, state.pitch));
+        look.lastX = t.clientX;
+        look.lastY = t.clientY;
+      }
+    }
+    e.preventDefault();
+  }, { passive: false });
+
+  const resetLook = (e) => {
+    for (const t of e.changedTouches) {
+      if (t.identifier === look.touchId) {
+        look.active = false;
+        look.touchId = null;
+      }
+    }
+  };
+  lookZone.addEventListener('touchend', resetLook);
+  lookZone.addEventListener('touchcancel', resetLook);
+
+  // Shift button
+  shiftBtn.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    shiftDimension();
+  }, { passive: false });
+
+  // Next level button (mobile)
+  nextBtn.addEventListener('click', () => {
+    if (state.levelComplete) nextLevel();
   });
+}
+
+function updateTouchMovement() {
+  if (!joystick.active) {
+    state.moveForward = false;
+    state.moveBackward = false;
+    state.moveLeft = false;
+    state.moveRight = false;
+    return;
+  }
+  const deadzone = 0.15;
+  state.moveForward = joystick.dy < -deadzone;
+  state.moveBackward = joystick.dy > deadzone;
+  state.moveLeft = joystick.dx < -deadzone;
+  state.moveRight = joystick.dx > deadzone;
+}
+
+function updateShiftButtonColor() {
+  const btn = document.getElementById('shift-btn');
+  if (!btn) return;
+  if (state.dimension === 'blue') btn.classList.add('blue');
+  else btn.classList.remove('blue');
 }
 
 // ─── Start ───
 document.getElementById('start-btn').addEventListener('click', () => {
   document.getElementById('blocker').style.display = 'none';
   state.playing = true;
-  renderer.domElement.requestPointerLock();
+  if (!isMobile) {
+    renderer.domElement.requestPointerLock();
+  }
   buildLevel(0);
 });
 
@@ -808,6 +1035,7 @@ window.addEventListener('resize', () => {
 
 // ─── Game Loop ───
 setupInput();
+setupTouchInput();
 setupLighting();
 buildLevel(0);
 
@@ -819,7 +1047,9 @@ function animate() {
   requestAnimationFrame(animate);
   const delta = Math.min(clock.getDelta(), 0.05);
 
+  if (isMobile) updateTouchMovement();
   updateMovement(delta);
+  if (isMobile) updateShiftButtonColor();
   drawMinimap();
   renderer.render(scene, camera);
 }
