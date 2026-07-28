@@ -1,0 +1,821 @@
+<title>SHIFT</title>
+<style>
+  :root {
+    --red: #ff3355;
+    --blue: #3355ff;
+    --red-dim: #331118;
+    --blue-dim: #111338;
+    --neutral: #1e1e28;
+    --ground: #0a0a0e;
+    --ceil: #060608;
+    --text: #c8c8d0;
+    --text-dim: #555566;
+    --portal: #e8e8f0;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--ground); overflow: hidden;
+    font-family: 'Courier New', Courier, monospace; color: var(--text);
+    touch-action: none; user-select: none; -webkit-user-select: none;
+    position: fixed; inset: 0;
+  }
+
+  #game-canvas {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    image-rendering: pixelated; display: block;
+  }
+
+  /* ─── Blocker / Title ─── */
+  #blocker {
+    position: fixed; inset: 0; z-index: 100;
+    background: rgba(6,6,8,0.92);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 24px; padding: 20px;
+  }
+  #blocker.hidden { display: none; }
+
+  .title {
+    font-size: clamp(42px, 12vw, 88px);
+    font-weight: 900; letter-spacing: 0.25em;
+    line-height: 1;
+  }
+  .title .r { color: var(--red); }
+  .title .b { color: var(--blue); }
+  .title .m { color: #8833aa; }
+
+  .subtitle {
+    color: var(--text-dim); font-size: clamp(11px, 2.5vw, 15px);
+    letter-spacing: 0.15em; text-transform: uppercase; text-align: center;
+    max-width: 460px; line-height: 1.9;
+  }
+  .subtitle b { color: var(--text); font-weight: 400; }
+
+  .ctrl-row {
+    display: flex; gap: 6px; align-items: center; justify-content: center;
+    flex-wrap: wrap;
+  }
+  .key {
+    display: inline-block; background: #1a1a24; border: 1px solid #333344;
+    border-radius: 3px; padding: 1px 8px; font-size: 12px; color: var(--text);
+    line-height: 1.6;
+  }
+
+  #start-btn {
+    margin-top: 12px; padding: 12px 48px; font-size: 16px;
+    font-family: inherit; background: transparent; color: var(--text);
+    border: 1.5px solid var(--text-dim); cursor: pointer;
+    letter-spacing: 0.3em; transition: border-color 0.2s, color 0.2s;
+  }
+  #start-btn:hover, #start-btn:focus-visible {
+    border-color: var(--text); color: #fff; outline: none;
+  }
+
+  /* ─── HUD ─── */
+  #hud {
+    position: fixed; top: 0; left: 0; width: 100%;
+    padding: 14px 20px; display: flex; justify-content: space-between;
+    pointer-events: none; z-index: 50;
+  }
+  #dim-label {
+    font-size: clamp(12px, 2.5vw, 16px); letter-spacing: 0.2em;
+    text-shadow: 0 0 18px currentColor; transition: color 0.2s;
+  }
+  #lvl-label {
+    font-size: clamp(10px, 2vw, 13px); letter-spacing: 0.15em;
+    color: var(--text-dim);
+  }
+
+  #crosshair {
+    position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%);
+    width: 18px; height: 18px; z-index: 50; pointer-events: none; opacity: 0.35;
+  }
+  #crosshair::before, #crosshair::after {
+    content: ''; position: absolute; background: var(--text);
+  }
+  #crosshair::before { width: 1.5px; height: 100%; left: 50%; transform: translateX(-50%); }
+  #crosshair::after  { height: 1.5px; width: 100%; top: 50%; transform: translateY(-50%); }
+
+  #flash {
+    position: fixed; inset: 0; pointer-events: none; z-index: 40;
+    opacity: 0; transition: opacity 0.12s;
+  }
+
+  /* ─── Level Complete ─── */
+  #complete {
+    position: fixed; inset: 0; z-index: 100;
+    background: rgba(6,6,8,0.92);
+    display: none; flex-direction: column; align-items: center; justify-content: center;
+    gap: 16px;
+  }
+  #complete.show { display: flex; }
+  #complete h2 {
+    font-size: clamp(28px, 7vw, 48px); letter-spacing: 0.3em;
+    font-weight: 700; color: #fff;
+  }
+  #complete p {
+    font-size: clamp(11px, 2.5vw, 14px); letter-spacing: 0.15em;
+    color: var(--text-dim);
+  }
+  #next-btn {
+    margin-top: 10px; padding: 10px 36px; font-size: 14px;
+    font-family: inherit; background: transparent; color: var(--text);
+    border: 1.5px solid var(--text-dim); cursor: pointer; letter-spacing: 0.2em;
+  }
+  #next-btn:hover, #next-btn:focus-visible { border-color: var(--text); color: #fff; outline: none; }
+
+  /* ─── Hint ─── */
+  #hint {
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+    font-size: clamp(10px, 2vw, 13px); letter-spacing: 0.12em;
+    color: var(--text-dim); z-index: 50; pointer-events: none;
+    transition: opacity 0.6s; white-space: nowrap;
+  }
+
+  /* ─── Minimap ─── */
+  #minimap {
+    position: fixed; z-index: 50; pointer-events: none; opacity: 0.55;
+    bottom: 16px; right: 16px; width: 120px; height: 120px;
+    image-rendering: pixelated;
+  }
+
+  /* ─── Mobile Touch ─── */
+  .touch-only { display: none; }
+  @media (pointer: coarse), (hover: none) {
+    .touch-only { display: block; }
+    .desktop-only { display: none !important; }
+    #minimap { width: 90px; height: 90px; bottom: 10px; right: 10px; }
+    #hint { bottom: 110px; }
+  }
+
+  #joy-zone {
+    position: fixed; bottom: 0; left: 0; width: 44%; height: 44%;
+    z-index: 60;
+  }
+  #joy-base {
+    position: absolute; bottom: 32px; left: 24px;
+    width: 110px; height: 110px; border-radius: 50%;
+    border: 1.5px solid rgba(200,200,210,0.18);
+    display: flex; align-items: center; justify-content: center;
+  }
+  #joy-thumb {
+    width: 44px; height: 44px; border-radius: 50%;
+    background: rgba(200,200,210,0.22); pointer-events: none;
+  }
+  #look-zone {
+    position: fixed; top: 0; right: 0; width: 56%; height: 100%; z-index: 55;
+  }
+  #shift-btn {
+    position: fixed; bottom: 36px; right: 24px; z-index: 60;
+    width: 72px; height: 72px; border-radius: 50%;
+    border: 1.5px solid rgba(255,51,85,0.4);
+    background: rgba(255,51,85,0.12); color: var(--text);
+    font-family: inherit; font-size: 11px; font-weight: 700;
+    letter-spacing: 0.15em; display: flex; align-items: center;
+    justify-content: center; transition: background 0.2s, border-color 0.2s;
+  }
+  #shift-btn.blue {
+    border-color: rgba(51,85,255,0.45);
+    background: rgba(51,85,255,0.12);
+  }
+</style>
+
+<!-- Blocker -->
+<div id="blocker">
+  <div class="title"><span class="r">SH</span><span class="m">I</span><span class="b">FT</span></div>
+  <div class="subtitle">
+    <span class="desktop-only">
+      <span class="ctrl-row"><span class="key">W</span><span class="key">A</span><span class="key">S</span><span class="key">D</span> move &nbsp; <span class="key">MOUSE</span> look</span><br>
+      Press <span class="key">SPACE</span> to shift dimensions<br><br>
+    </span>
+    <span class="touch-only" style="display:none">
+      Left stick to move &middot; Swipe to look<br>
+      Tap SHIFT to switch dimensions<br><br>
+    </span>
+    <b style="color:var(--red)">Red walls</b> are solid in the <b style="color:var(--red)">Red Dimension</b><br>
+    <b style="color:var(--blue)">Blue walls</b> are solid in the <b style="color:var(--blue)">Blue Dimension</b><br><br>
+    Reach the <b>white portal</b> to complete each level
+  </div>
+  <button id="start-btn">ENTER</button>
+</div>
+
+<canvas id="game-canvas"></canvas>
+
+<div id="hud">
+  <div id="dim-label" style="color:var(--red)">RED DIMENSION</div>
+  <div id="lvl-label">LEVEL 1</div>
+</div>
+<div id="crosshair" class="desktop-only"></div>
+<div id="flash"></div>
+<canvas id="minimap"></canvas>
+<div id="hint"></div>
+
+<div id="complete">
+  <h2 id="comp-title">LEVEL COMPLETE</h2>
+  <p id="comp-info"></p>
+  <button id="next-btn">NEXT LEVEL</button>
+</div>
+
+<!-- Mobile controls -->
+<div class="touch-only" id="joy-zone"><div id="joy-base"><div id="joy-thumb"></div></div></div>
+<div class="touch-only" id="look-zone"></div>
+<button class="touch-only" id="shift-btn">SHIFT</button>
+
+<script>
+(function(){
+'use strict';
+
+// ─── Config ───
+const FOV = Math.PI / 3;
+const MOVE_SPD = 3.2;
+const ROT_SPD = 0.003;
+const WALL_H = 1;
+
+// ─── Colors ───
+const C = {
+  red:    [255, 51, 85],
+  blue:   [51, 85, 255],
+  redG:   [50, 16, 24],
+  blueG:  [16, 20, 56],
+  neutral:[34, 34, 44],
+  portal: [232, 232, 240],
+  floor1: [10, 10, 14],
+  floor2: [14, 14, 20],
+  ceil:   [6, 6, 8],
+};
+
+// ─── State ───
+const S = {
+  dim: 'red', level: 0, playing: false, done: false,
+  px: 1.5, py: 1.5, pa: 0,
+  shifts: 0, cooldown: false,
+  mf: false, mb: false, ml: false, mr: false,
+};
+
+const isMobile = ('ontouchstart' in window) || navigator.maxTouchPoints > 0
+  || matchMedia('(pointer:coarse)').matches;
+
+// ─── Levels ───
+// 0=empty, 1=neutral, 2=red, 3=blue, 9=portal
+const levels = [
+  { // 1: Intro
+    hint: 'Press SPACE to shift through colored walls',
+    spawn: [1.5, 1.5, 0],
+    map: [
+      [1,1,1,1,1,1,1],
+      [1,0,0,0,0,0,1],
+      [1,0,0,0,0,0,1],
+      [1,2,2,2,2,2,1],
+      [1,0,0,0,0,0,1],
+      [1,0,0,0,0,0,1],
+      [1,0,0,9,0,0,1],
+      [1,1,1,1,1,1,1],
+    ],
+  },
+  { // 2: Double shift
+    hint: 'Shift to pass red, shift back to pass blue',
+    spawn: [1.5, 1.5, 0],
+    map: [
+      [1,1,1,1,1,1,1],
+      [1,0,0,0,0,0,1],
+      [1,2,2,2,2,2,1],
+      [1,0,0,0,0,0,1],
+      [1,0,0,0,0,0,1],
+      [1,3,3,3,3,3,1],
+      [1,0,0,0,0,0,1],
+      [1,0,0,9,0,0,1],
+      [1,1,1,1,1,1,1],
+    ],
+  },
+  { // 3: Side path
+    hint: 'Find the right path through both dimensions',
+    spawn: [1.5, 1.5, Math.PI/2],
+    map: [
+      [1,1,1,1,1,1,1,1,1],
+      [1,0,0,2,0,0,3,0,1],
+      [1,0,0,2,0,0,3,0,1],
+      [1,0,0,2,0,0,0,0,1],
+      [1,3,3,3,0,0,2,2,1],
+      [1,0,0,0,0,0,0,0,1],
+      [1,0,0,2,0,0,3,0,1],
+      [1,0,0,2,0,0,3,9,1],
+      [1,1,1,1,1,1,1,1,1],
+    ],
+  },
+  { // 4: Maze
+    hint: 'Study the minimap. Plan your shifts.',
+    spawn: [1.5, 1.5, Math.PI/2],
+    map: [
+      [1,1,1,1,1,1,1,1,1,1,1],
+      [1,0,0,0,2,0,0,0,0,0,1],
+      [1,0,1,0,2,0,1,3,0,0,1],
+      [1,0,0,0,0,0,0,3,0,0,1],
+      [1,3,3,0,1,0,2,0,0,0,1],
+      [1,0,0,0,0,0,2,0,1,0,1],
+      [1,0,2,2,0,0,0,0,3,0,1],
+      [1,0,0,0,0,1,0,0,3,0,1],
+      [1,0,0,3,0,0,0,0,0,0,1],
+      [1,0,0,3,0,0,0,0,0,9,1],
+      [1,1,1,1,1,1,1,1,1,1,1],
+    ],
+  },
+  { // 5: Gauntlet
+    hint: 'Shift rapidly to navigate the gauntlet',
+    spawn: [1.5, 1.5, 0],
+    map: [
+      [1,1,1,1,1],
+      [1,0,0,0,1],
+      [1,2,2,2,1],
+      [1,0,0,0,1],
+      [1,3,3,3,1],
+      [1,0,0,0,1],
+      [1,2,2,2,1],
+      [1,0,0,0,1],
+      [1,3,3,3,1],
+      [1,0,0,0,1],
+      [1,2,2,2,1],
+      [1,0,0,0,1],
+      [1,3,3,3,1],
+      [1,0,0,0,1],
+      [1,0,9,0,1],
+      [1,1,1,1,1],
+    ],
+  },
+  { // 6: Arena
+    hint: 'The final puzzle. Think carefully.',
+    spawn: [1.5, 1.5, Math.PI/4],
+    map: [
+      [1,1,1,1,1,1,1,1,1,1,1,1,1],
+      [1,0,0,0,2,0,0,0,3,0,0,0,1],
+      [1,0,0,0,2,0,0,0,3,0,0,0,1],
+      [1,0,0,0,0,0,3,0,0,0,0,0,1],
+      [1,3,3,0,1,0,3,0,1,0,2,2,1],
+      [1,0,0,0,0,0,0,0,0,0,0,0,1],
+      [1,0,0,2,0,0,1,0,0,3,0,0,1],
+      [1,0,0,2,0,0,0,0,0,0,0,0,1],
+      [1,2,2,0,1,0,2,0,1,0,3,3,1],
+      [1,0,0,0,0,0,2,0,0,0,0,0,1],
+      [1,0,0,0,3,0,0,0,2,0,0,0,1],
+      [1,0,0,0,3,0,0,0,2,0,0,9,1],
+      [1,1,1,1,1,1,1,1,1,1,1,1,1],
+    ],
+  },
+];
+
+// ─── Canvas ───
+const cvs = document.getElementById('game-canvas');
+const ctx = cvs.getContext('2d');
+const mm = document.getElementById('minimap');
+const mctx = mm.getContext('2d');
+
+let W, H, rays;
+function resize() {
+  W = window.innerWidth;
+  H = window.innerHeight;
+  cvs.width = W; cvs.height = H;
+  rays = Math.ceil(W / 2);
+}
+resize();
+window.addEventListener('resize', resize);
+
+// ─── Raycaster ───
+function castRay(map, ox, oy, angle) {
+  const sin = Math.sin(angle), cos = Math.cos(angle);
+  const dx = cos, dy = sin;
+  let x = ox, y = oy;
+  const stepX = dx > 0 ? 1 : -1, stepY = dy > 0 ? 1 : -1;
+
+  let mapX = Math.floor(x), mapY = Math.floor(y);
+  let tMaxX, tMaxY, tDeltaX, tDeltaY;
+
+  if (dx !== 0) {
+    tDeltaX = Math.abs(1 / dx);
+    tMaxX = dx > 0 ? (mapX + 1 - x) / dx : (x - mapX) / (-dx);
+  } else { tMaxX = 1e30; tDeltaX = 1e30; }
+
+  if (dy !== 0) {
+    tDeltaY = Math.abs(1 / dy);
+    tMaxY = dy > 0 ? (mapY + 1 - y) / dy : (y - mapY) / (-dy);
+  } else { tMaxY = 1e30; tDeltaY = 1e30; }
+
+  let side = 0;
+  const hits = [];
+  for (let i = 0; i < 64; i++) {
+    if (tMaxX < tMaxY) {
+      mapX += stepX; side = 0;
+      const t = tMaxX; tMaxX += tDeltaX;
+      if (mapY < 0 || mapY >= map.length || mapX < 0 || mapX >= map[0].length) break;
+      const cell = map[mapY][mapX];
+      if (cell > 0) {
+        hits.push({ dist: t, cell, side });
+        if (isSolid(cell)) break;
+      }
+    } else {
+      mapY += stepY; side = 1;
+      const t = tMaxY; tMaxY += tDeltaY;
+      if (mapY < 0 || mapY >= map.length || mapX < 0 || mapX >= map[0].length) break;
+      const cell = map[mapY][mapX];
+      if (cell > 0) {
+        hits.push({ dist: t, cell, side });
+        if (isSolid(cell)) break;
+      }
+    }
+  }
+  return hits;
+}
+
+function isSolid(cell) {
+  if (cell === 1 || cell === 9) return true;
+  if (cell === 2) return S.dim === 'red';
+  if (cell === 3) return S.dim === 'blue';
+  return false;
+}
+
+function wallColor(cell, side, dist) {
+  let rgb;
+  if (cell === 1) rgb = [...C.neutral];
+  else if (cell === 2) rgb = S.dim === 'red' ? [...C.red] : [...C.redG];
+  else if (cell === 3) rgb = S.dim === 'blue' ? [...C.blue] : [...C.blueG];
+  else if (cell === 9) rgb = [...C.portal];
+  else rgb = [...C.neutral];
+
+  // side shading
+  if (side === 1) { rgb[0] *= 0.72; rgb[1] *= 0.72; rgb[2] *= 0.72; }
+
+  // distance fog
+  const fog = Math.max(0, 1 - dist / 12);
+  rgb[0] = Math.round(rgb[0] * fog);
+  rgb[1] = Math.round(rgb[1] * fog);
+  rgb[2] = Math.round(rgb[2] * fog);
+
+  return rgb;
+}
+
+function wallAlpha(cell) {
+  if (cell === 2 && S.dim !== 'red') return 0.18;
+  if (cell === 3 && S.dim !== 'blue') return 0.18;
+  return 1;
+}
+
+// ─── Render ───
+let portalPulse = 0;
+function render() {
+  const map = levels[S.level].map;
+  const imgData = ctx.createImageData(W, H);
+  const buf = imgData.data;
+
+  // floor / ceiling gradient baked per-row
+  const halfH = H / 2;
+  for (let y = 0; y < H; y++) {
+    const rowDist = halfH / Math.abs(y - halfH + 0.5);
+    const fog = Math.max(0, Math.min(1, 1 - rowDist / 14));
+    let r, g, b;
+    if (y < halfH) {
+      r = Math.round(C.ceil[0] * fog * 0.6);
+      g = Math.round(C.ceil[1] * fog * 0.6);
+      b = Math.round(C.ceil[2] * fog * 0.6);
+    } else {
+      const fr = S.dim === 'red' ? C.floor2 : C.floor1;
+      r = Math.round(fr[0] * fog);
+      g = Math.round(fr[1] * fog);
+      b = Math.round(fr[2] * fog);
+    }
+    for (let x = 0; x < W; x++) {
+      const i = (y * W + x) * 4;
+      buf[i] = r; buf[i+1] = g; buf[i+2] = b; buf[i+3] = 255;
+    }
+  }
+
+  // cast rays
+  const stripW = W / rays;
+  for (let r = 0; r < rays; r++) {
+    const angle = S.pa - FOV / 2 + (r / rays) * FOV;
+    const hits = castRay(map, S.px, S.py, angle);
+
+    for (let hi = hits.length - 1; hi >= 0; hi--) {
+      const hit = hits[hi];
+      const perp = hit.dist * Math.cos(angle - S.pa);
+      if (perp < 0.05) continue;
+
+      const lineH = Math.min(H * 2, (H / perp) * WALL_H);
+      const drawStart = Math.max(0, Math.floor(halfH - lineH / 2));
+      const drawEnd = Math.min(H - 1, Math.floor(halfH + lineH / 2));
+
+      const rgb = wallColor(hit.cell, hit.side, hit.dist);
+      const alpha = wallAlpha(hit.cell);
+
+      // portal glow pulse
+      if (hit.cell === 9) {
+        const pulse = 0.7 + 0.3 * Math.sin(portalPulse);
+        rgb[0] = Math.round(rgb[0] * pulse);
+        rgb[1] = Math.round(rgb[1] * pulse);
+        rgb[2] = Math.round(rgb[2] * pulse);
+      }
+
+      const sx = Math.floor(r * stripW);
+      const ex = Math.ceil((r + 1) * stripW);
+      for (let y = drawStart; y <= drawEnd; y++) {
+        for (let x = sx; x < ex && x < W; x++) {
+          const i = (y * W + x) * 4;
+          if (alpha >= 1) {
+            buf[i] = rgb[0]; buf[i+1] = rgb[1]; buf[i+2] = rgb[2];
+          } else {
+            buf[i]   = Math.round(buf[i]   * (1-alpha) + rgb[0] * alpha);
+            buf[i+1] = Math.round(buf[i+1] * (1-alpha) + rgb[1] * alpha);
+            buf[i+2] = Math.round(buf[i+2] * (1-alpha) + rgb[2] * alpha);
+          }
+        }
+      }
+    }
+  }
+
+  ctx.putImageData(imgData, 0, 0);
+}
+
+// ─── Minimap ───
+function drawMinimap() {
+  const map = levels[S.level].map;
+  const rows = map.length, cols = map[0].length;
+  const cs = Math.floor(Math.min(120, 90) / Math.max(rows, cols));
+  const mw = cols * cs, mh = rows * cs;
+  mm.width = mw; mm.height = mh;
+  mm.style.width = mw + 'px'; mm.style.height = mh + 'px';
+  mctx.clearRect(0, 0, mw, mh);
+
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const cell = map[r][c];
+      if (cell === 0) continue;
+      if (cell === 1) mctx.fillStyle = '#333344';
+      else if (cell === 2) mctx.fillStyle = S.dim === 'red' ? '#ff3355' : 'rgba(255,51,85,0.2)';
+      else if (cell === 3) mctx.fillStyle = S.dim === 'blue' ? '#3355ff' : 'rgba(51,85,255,0.2)';
+      else if (cell === 9) mctx.fillStyle = '#e8e8f0';
+      mctx.fillRect(c * cs, r * cs, cs, cs);
+    }
+  }
+
+  // player
+  const px = S.px * cs, py = S.py * cs;
+  mctx.fillStyle = S.dim === 'red' ? '#ff3355' : '#3355ff';
+  mctx.beginPath(); mctx.arc(px, py, 3, 0, Math.PI * 2); mctx.fill();
+  const dl = 8;
+  mctx.strokeStyle = '#fff'; mctx.lineWidth = 1.5;
+  mctx.beginPath(); mctx.moveTo(px, py);
+  mctx.lineTo(px + Math.cos(S.pa) * dl, py + Math.sin(S.pa) * dl);
+  mctx.stroke();
+}
+
+// ─── Movement ───
+function move(dt) {
+  if (!S.playing || S.done) return;
+  const map = levels[S.level].map;
+  let dx = 0, dy = 0;
+  const cos = Math.cos(S.pa), sin = Math.sin(S.pa);
+
+  if (S.mf) { dx += cos; dy += sin; }
+  if (S.mb) { dx -= cos; dy -= sin; }
+  if (S.ml) { dx += sin; dy -= cos; }
+  if (S.mr) { dx -= sin; dy += cos; }
+
+  const len = Math.sqrt(dx*dx + dy*dy);
+  if (len > 0) { dx /= len; dy /= len; }
+
+  const spd = MOVE_SPD * dt;
+  const nx = S.px + dx * spd;
+  const ny = S.py + dy * spd;
+  const r = 0.2;
+
+  if (!blocked(map, nx, S.py, r)) S.px = nx;
+  if (!blocked(map, S.px, ny, r)) S.py = ny;
+
+  // portal check
+  const mx = Math.floor(S.px), my = Math.floor(S.py);
+  if (my >= 0 && my < map.length && mx >= 0 && mx < map[0].length && map[my][mx] === 9) {
+    levelComplete();
+  }
+}
+
+function blocked(map, x, y, r) {
+  for (let dy = -1; dy <= 1; dy++) {
+    for (let dx = -1; dx <= 1; dx++) {
+      const cx = Math.floor(x + dx * r);
+      const cy = Math.floor(y + dy * r);
+      if (cy < 0 || cy >= map.length || cx < 0 || cx >= map[0].length) return true;
+      const cell = map[cy][cx];
+      if (isSolid(cell)) return true;
+    }
+  }
+  return false;
+}
+
+// ─── Dimension Shift ───
+function shift() {
+  if (S.cooldown || S.done) return;
+  S.cooldown = true;
+  S.shifts++;
+
+  const oldDim = S.dim;
+  S.dim = S.dim === 'red' ? 'blue' : 'red';
+
+  // check if player stuck in newly-solid wall
+  const map = levels[S.level].map;
+  if (blocked(map, S.px, S.py, 0.2)) {
+    S.dim = oldDim;
+    flash('rgba(255,0,0,0.4)');
+    S.cooldown = false;
+    return;
+  }
+
+  flash(S.dim === 'red' ? 'rgba(255,51,85,0.25)' : 'rgba(51,85,255,0.25)');
+  updateDimUI();
+  setTimeout(() => { S.cooldown = false; }, 180);
+}
+
+function flash(color) {
+  const el = document.getElementById('flash');
+  el.style.background = color;
+  el.style.opacity = 1;
+  setTimeout(() => { el.style.opacity = 0; }, 120);
+}
+
+function updateDimUI() {
+  const el = document.getElementById('dim-label');
+  el.textContent = S.dim === 'red' ? 'RED DIMENSION' : 'BLUE DIMENSION';
+  el.style.color = S.dim === 'red' ? 'var(--red)' : 'var(--blue)';
+  const btn = document.getElementById('shift-btn');
+  if (btn) { S.dim === 'blue' ? btn.classList.add('blue') : btn.classList.remove('blue'); }
+}
+
+// ─── Levels ───
+function loadLevel(idx) {
+  const lv = levels[idx];
+  S.level = idx; S.done = false; S.shifts = 0;
+  S.px = lv.spawn[0]; S.py = lv.spawn[1]; S.pa = lv.spawn[2];
+  S.dim = 'red'; updateDimUI();
+  document.getElementById('lvl-label').textContent = 'LEVEL ' + (idx + 1);
+  document.getElementById('complete').classList.remove('show');
+
+  const hint = document.getElementById('hint');
+  if (lv.hint) {
+    hint.textContent = isMobile ? lv.hint.replace('SPACE', 'SHIFT button') : lv.hint;
+    hint.style.opacity = 1;
+    setTimeout(() => { hint.style.opacity = 0; }, 4000);
+  } else hint.style.opacity = 0;
+}
+
+function levelComplete() {
+  if (S.done) return;
+  S.done = true;
+  const el = document.getElementById('complete');
+  el.classList.add('show');
+  const last = S.level >= levels.length - 1;
+  document.getElementById('comp-title').textContent = last ? 'YOU WIN' : 'LEVEL COMPLETE';
+  document.getElementById('comp-info').textContent = 'SHIFTS USED: ' + S.shifts;
+  document.getElementById('next-btn').textContent = last ? 'RESTART' : 'NEXT LEVEL';
+}
+
+function nextLevel() {
+  if (S.level >= levels.length - 1) loadLevel(0);
+  else loadLevel(S.level + 1);
+}
+
+// ─── Input ───
+document.addEventListener('keydown', e => {
+  if (e.code === 'Enter' && S.done) { nextLevel(); return; }
+  if (!S.playing) return;
+  switch (e.code) {
+    case 'KeyW': case 'ArrowUp':    S.mf = true; break;
+    case 'KeyS': case 'ArrowDown':  S.mb = true; break;
+    case 'KeyA': case 'ArrowLeft':  S.ml = true; break;
+    case 'KeyD': case 'ArrowRight': S.mr = true; break;
+    case 'Space': e.preventDefault(); shift(); break;
+  }
+});
+document.addEventListener('keyup', e => {
+  switch (e.code) {
+    case 'KeyW': case 'ArrowUp':    S.mf = false; break;
+    case 'KeyS': case 'ArrowDown':  S.mb = false; break;
+    case 'KeyA': case 'ArrowLeft':  S.ml = false; break;
+    case 'KeyD': case 'ArrowRight': S.mr = false; break;
+  }
+});
+
+document.addEventListener('mousemove', e => {
+  if (!S.playing || document.pointerLockElement !== cvs) return;
+  S.pa += e.movementX * ROT_SPD;
+});
+cvs.addEventListener('click', () => {
+  if (S.playing && !isMobile) cvs.requestPointerLock();
+});
+
+// ─── Touch ───
+const joy = { active: false, id: null, cx: 0, cy: 0, dx: 0, dy: 0 };
+const look = { active: false, id: null, lx: 0 };
+
+if (isMobile) {
+  document.querySelectorAll('.touch-only[style]').forEach(el => el.style.display = '');
+
+  const jz = document.getElementById('joy-zone');
+  const jt = document.getElementById('joy-thumb');
+  const jb = document.getElementById('joy-base');
+  const lz = document.getElementById('look-zone');
+  const sb = document.getElementById('shift-btn');
+
+  const JMAX = 38;
+
+  jz.addEventListener('touchstart', e => {
+    if (joy.active) return;
+    const t = e.changedTouches[0]; joy.active = true; joy.id = t.identifier;
+    const r = jb.getBoundingClientRect();
+    joy.cx = r.left + r.width/2; joy.cy = r.top + r.height/2;
+    e.preventDefault();
+  }, {passive:false});
+
+  jz.addEventListener('touchmove', e => {
+    for (const t of e.changedTouches) {
+      if (t.identifier !== joy.id) continue;
+      let dx = t.clientX - joy.cx, dy = t.clientY - joy.cy;
+      const d = Math.sqrt(dx*dx+dy*dy);
+      if (d > JMAX) { dx *= JMAX/d; dy *= JMAX/d; }
+      joy.dx = dx/JMAX; joy.dy = dy/JMAX;
+      jt.style.transform = `translate(${dx}px,${dy}px)`;
+    }
+    e.preventDefault();
+  }, {passive:false});
+
+  const jReset = e => {
+    for (const t of e.changedTouches) {
+      if (t.identifier !== joy.id) continue;
+      joy.active=false; joy.id=null; joy.dx=0; joy.dy=0;
+      jt.style.transform = 'translate(0,0)';
+    }
+  };
+  jz.addEventListener('touchend', jReset);
+  jz.addEventListener('touchcancel', jReset);
+
+  lz.addEventListener('touchstart', e => {
+    if (look.active) return;
+    const t = e.changedTouches[0]; look.active=true; look.id=t.identifier; look.lx=t.clientX;
+    e.preventDefault();
+  }, {passive:false});
+
+  lz.addEventListener('touchmove', e => {
+    for (const t of e.changedTouches) {
+      if (t.identifier !== look.id) continue;
+      S.pa += (t.clientX - look.lx) * 0.005;
+      look.lx = t.clientX;
+    }
+    e.preventDefault();
+  }, {passive:false});
+
+  const lReset = e => {
+    for (const t of e.changedTouches) {
+      if (t.identifier !== look.id) continue;
+      look.active=false; look.id=null;
+    }
+  };
+  lz.addEventListener('touchend', lReset);
+  lz.addEventListener('touchcancel', lReset);
+
+  sb.addEventListener('touchstart', e => { e.preventDefault(); e.stopPropagation(); shift(); }, {passive:false});
+}
+
+function touchMove() {
+  if (!joy.active) { S.mf=S.mb=S.ml=S.mr=false; return; }
+  const dz = 0.15;
+  S.mf = joy.dy < -dz; S.mb = joy.dy > dz;
+  S.ml = joy.dx < -dz; S.mr = joy.dx > dz;
+}
+
+// ─── Start ───
+document.getElementById('start-btn').addEventListener('click', () => {
+  document.getElementById('blocker').classList.add('hidden');
+  S.playing = true;
+  if (!isMobile) cvs.requestPointerLock();
+  loadLevel(0);
+});
+
+document.getElementById('next-btn').addEventListener('click', () => {
+  if (S.done) nextLevel();
+});
+
+// ─── Loop ───
+let last = 0;
+function frame(ts) {
+  requestAnimationFrame(frame);
+  const dt = Math.min((ts - last) / 1000, 0.05);
+  last = ts;
+  portalPulse += dt * 4;
+
+  if (S.playing) {
+    if (isMobile) touchMove();
+    move(dt);
+    render();
+    drawMinimap();
+  }
+}
+loadLevel(0);
+requestAnimationFrame(frame);
+
+})();
+</script>
